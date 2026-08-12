@@ -1,4 +1,4 @@
-# Orbit Atlas
+# Above Earth
 
 An interactive, full-screen 3D Earth globe built with **Next.js** (App Router, TypeScript, Tailwind CSS), **CesiumJS**, and **satellite.js**. It renders a realistic full-colour Earth (Esri World Imagery) beneath a strictly black-and-white UI, with a curated catalog of 123 real satellites (crisp white satellite-shaped markers), propagating their positions in real time from checked-in TLE data — refreshed live from CelesTrak when available — with a searchable/filterable catalog, selectable satellites (details + orbital trail + a 3D model), an Earth/map imagery toggle, playback controls, and a live orbital-diagnostics readout. A **Full Catalog** mode switches the browser to the complete CelesTrak active-satellite set (tens of thousands of objects) rendered as batched GPU points.
 
