@@ -17,6 +17,10 @@ import {
   type OrbitSnapshot,
 } from "@/lib/orbits";
 
+import { twoline2satrec } from "@/lib/satellite/io.js";
+import { propagate, gstime } from "@/lib/satellite/propagation.js";
+import { eciToEcf } from "@/lib/satellite/transforms.js";
+
 type PropagatedSat = {
   id: string;
   name: string;
@@ -233,9 +237,6 @@ export default function CesiumGlobe() {
       cesiumWindow.CESIUM_BASE_URL = "/cesium";
 
       const Cesium = await import("cesium");
-      const io = await import("@/lib/satellite/io.js");
-      const prop = await import("@/lib/satellite/propagation.js");
-      const transforms = await import("@/lib/satellite/transforms.js");
 
       if (isCancelled || !containerRef.current) return;
       cesiumRef.current = Cesium;
@@ -532,7 +533,7 @@ export default function CesiumGlobe() {
         const parsed: PropagatedSat[] = [];
         for (const record of records) {
           try {
-            const satrec = io.twoline2satrec(record.line1, record.line2);
+            const satrec = twoline2satrec(record.line1, record.line2);
             parsed.push({
               id: record.id,
               name: record.name,
@@ -555,7 +556,7 @@ export default function CesiumGlobe() {
 
       for (const record of dataRef.current) {
         try {
-          const satrec = io.twoline2satrec(record.line1, record.line2);
+          const satrec = twoline2satrec(record.line1, record.line2);
           propagated.push({
             id: record.id,
             name: record.name,
@@ -655,10 +656,10 @@ export default function CesiumGlobe() {
             t0.getTime() + periodSec * (i / ALL_PATH_SAMPLES) * 1000
           );
           try {
-            const pv = prop.propagate(sat.satrec, t);
+            const pv = propagate(sat.satrec, t);
             if (!pv || !pv.position) continue;
-            const gmst = prop.gstime(t);
-            const ecf = transforms.eciToEcf(pv.position, gmst);
+            const gmst = gstime(t);
+            const ecf = eciToEcf(pv.position, gmst);
             const { x, y, z } = ecf;
             if (
               !Number.isFinite(x) ||
@@ -961,8 +962,8 @@ export default function CesiumGlobe() {
           for (; index < end; index += 1) {
             const record = records[index];
             try {
-              const satrec = io.twoline2satrec(record.line1, record.line2);
-              const pv = prop.propagate(satrec, now);
+              const satrec = twoline2satrec(record.line1, record.line2);
+              const pv = propagate(satrec, now);
               if (!pv || !pv.position) continue;
               const velocity = pv.velocity;
               const on =
@@ -1082,10 +1083,10 @@ export default function CesiumGlobe() {
 
         for (const sat of propagated) {
           try {
-            const pv = prop.propagate(sat.satrec, date);
+            const pv = propagate(sat.satrec, date);
             if (!pv || !pv.position) continue;
-            const gmst = prop.gstime(date);
-            const ecf = transforms.eciToEcf(pv.position, gmst);
+            const gmst = gstime(date);
+            const ecf = eciToEcf(pv.position, gmst);
             const { x, y, z } = ecf;
             if (
               !Number.isFinite(x) ||
@@ -1120,7 +1121,7 @@ export default function CesiumGlobe() {
           fullVisible.length > 0 &&
           tickClock.shouldAnimate
         ) {
-          const gmst = prop.gstime(date);
+          const gmst = gstime(date);
           const cosG = Math.cos(gmst);
           const sinG = Math.sin(gmst);
           const dateMs = date.getTime();
@@ -1131,7 +1132,7 @@ export default function CesiumGlobe() {
           for (let i = start; i < list.length; i += FULL_SLICE_FRAMES) {
             const f = list[i];
             try {
-              const pv = prop.propagate(f.satrec, date);
+              const pv = propagate(f.satrec, date);
               if (!pv || !pv.position) continue;
               const velocity = pv.velocity;
               f.eci.x = pv.position.x;
@@ -1163,7 +1164,7 @@ export default function CesiumGlobe() {
             const selected = fullRecords.get(selectedFullId);
             if (selected) {
               try {
-                const pv = prop.propagate(selected.satrec, date);
+                const pv = propagate(selected.satrec, date);
                 if (pv && pv.position) {
                   const { x, y, z } = pv.position;
                   const ecfX = x * cosG + y * sinG;
