@@ -3,15 +3,30 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
+    "cesium:copy": "node scripts/copy-cesium.mjs",
+    "tles:generate": "node scripts/generate-tles.mjs",
+    "tles:check": "node scripts/validate-tles.mjs",
+    "model:gen": "node scripts/generate-satellite-model.mjs",
+    "postinstall": "node scripts/copy-cesium.mjs",
+    "predev": "node scripts/copy-cesium.mjs",
+    "prebuild": "node scripts/copy-cesium.mjs && node scripts/check-velocity.mjs",
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "test": "node scripts/check-velocity.mjs && node scripts/check-ground-track.mjs",
+    "test:groundtrack": "node scripts/check-ground-track.mjs"
   },
   "dependencies": {
+    "cesium": "^1.144.0",
+    "clsx": "^2.1.1",
+    "lucide-react": "^1.31.0",
     "next": "16.3.0",
     "react": "19.2.8",
-    "react-dom": "19.2.8"
+    "react-dom": "19.2.8",
+    "satellite.js": "^7.1.0",
+    "tailwind-merge": "^3.6.0",
+    "zustand": "^5.0.14"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",
