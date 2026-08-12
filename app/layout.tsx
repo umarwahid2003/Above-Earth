@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Orbit Atlas",
+  title: "Above Earth",
   description:
     "An interactive real-time Earth globe tracking satellites in orbit.",
 };

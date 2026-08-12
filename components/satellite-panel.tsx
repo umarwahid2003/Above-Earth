@@ -314,12 +314,12 @@ export default function SatellitePanel() {
       >
         <div className="shrink-0 rounded-2xl border border-white/10 bg-[#0b0b0d]/80 p-4 shadow-2xl shadow-black/60 backdrop-blur-md">
           <div className="flex items-center gap-2.5">
-            <div className="flex size-8 items-center justify-center rounded-lg bg-white/10 ring-1 ring-white/20">
-              <Orbit className="size-4.5 text-neutral-200" />
+            <div className="flex size-8 items-center justify-center rounded-lg bg-white/10 ring-1 ring-white/20 overflow-hidden">
+              <img src="/logo.png" alt="Above Earth logo" className="size-full object-cover" />
             </div>
             <div className="min-w-0 flex-1">
               <h1 className="truncate text-lg font-semibold tracking-tight text-white">
-                Orbit <span className="text-neutral-400">Atlas</span>
+                Above <span className="text-neutral-400">Earth</span>
               </h1>
               <p className="text-xs text-neutral-500">
                 {catalogMode === "full" ? (
