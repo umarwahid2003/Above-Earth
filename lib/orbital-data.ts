@@ -161,7 +161,7 @@ async function fetchCelestrak(): Promise<Map<number, string[]>> {
   try {
     const res = await fetch(url, {
       headers: {
-        "User-Agent": "orbit-atlas/0.1 (interactive satellite globe)",
+        "User-Agent": "above-earth/0.1 (interactive satellite globe)",
         Accept: "text/plain,*/*",
       },
       signal: controller.signal,
