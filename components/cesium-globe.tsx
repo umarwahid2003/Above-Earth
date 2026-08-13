@@ -269,8 +269,7 @@ export default function CesiumGlobe() {
       // a subtle blue atmospheric rim with realistic sun lighting (kept
       // full-colour for the Earth imagery).
       globe.baseColor = Cesium.Color.fromCssColorString("#0a0a0a");
-      globe.enableLighting = true;
-      globe.dynamicAtmosphereLighting = true;
+      globe.enableLighting = false;
       globe.showGroundAtmosphere = true;
       scene.fog.enabled = true;
       scene.backgroundColor = Cesium.Color.fromCssColorString("#050505");
@@ -978,8 +977,15 @@ export default function CesiumGlobe() {
               } catch {
                 // Keep the default range for unparseable records.
               }
+              const gmst = gstime(now);
+              const ecf = eciToEcf(pv.position, gmst);
+              const initialPos = new Cesium.Cartesian3(
+                ecf.x * 1000,
+                ecf.y * 1000,
+                ecf.z * 1000
+              );
               const point = fullCollection.add({
-                position: new Cesium.Cartesian3(0, 0, 0),
+                position: initialPos,
                 pixelSize: FULL_POINT_PIXEL,
                 color: Cesium.Color.WHITE.withAlpha(FULL_POINT_ALPHA),
                 disableDepthTestDistance: Number.POSITIVE_INFINITY,
@@ -1118,8 +1124,7 @@ export default function CesiumGlobe() {
         if (
           fullModeActive &&
           fullCollection &&
-          fullVisible.length > 0 &&
-          tickClock.shouldAnimate
+          fullVisible.length > 0
         ) {
           const gmst = gstime(date);
           const cosG = Math.cos(gmst);
