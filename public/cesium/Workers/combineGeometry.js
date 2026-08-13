@@ -23,44 +23,4 @@
  * See https://github.com/CesiumGS/cesium/blob/main/LICENSE.md for full licensing details.
  */
 
-import {
-  PrimitivePipeline_default
-} from "./chunk-CIV5DJOQ.js";
-import {
-  createTaskProcessorWorker_default
-} from "./chunk-W5OCKMPJ.js";
-import "./chunk-B3QHNA4A.js";
-import "./chunk-TQ4QCOXT.js";
-import "./chunk-TNWKJNUZ.js";
-import "./chunk-3PSS3T43.js";
-import "./chunk-GHXVQVUM.js";
-import "./chunk-R4K7EHOU.js";
-import "./chunk-6FHT43QR.js";
-import "./chunk-IUIFLOYO.js";
-import "./chunk-QIZDWZK6.js";
-import "./chunk-2H5264K7.js";
-import "./chunk-CQNFIAZU.js";
-import "./chunk-CRCGE4J4.js";
-import "./chunk-ERKUET22.js";
-import "./chunk-DSGLDRTI.js";
-import "./chunk-YGFVAGYF.js";
-import "./chunk-FQ42MT7M.js";
-import "./chunk-UAZUP4I5.js";
-import "./chunk-SA2A2AN5.js";
-import "./chunk-ACTVJHSP.js";
-import "./chunk-XLQZNQ4Z.js";
-import "./chunk-PCL3Y7H5.js";
-
-// packages/engine/Source/Workers/combineGeometry.js
-function combineGeometry(packedParameters, transferableObjects) {
-  const parameters = PrimitivePipeline_default.unpackCombineGeometryParameters(packedParameters);
-  const results = PrimitivePipeline_default.combineGeometry(parameters);
-  return PrimitivePipeline_default.packCombineGeometryResults(
-    results,
-    transferableObjects
-  );
-}
-var combineGeometry_default = createTaskProcessorWorker_default(combineGeometry);
-export {
-  combineGeometry_default as default
-};
+import{a as e}from"./chunk-UXWCPYYV.js";import{a as r}from"./chunk-RCKN2G6K.js";import"./chunk-ZBAXXYBT.js";import"./chunk-OX6OW7LH.js";import"./chunk-SXFPISI4.js";import"./chunk-QVQR4MNN.js";import"./chunk-Q2AGSIFJ.js";import"./chunk-4XQS6KUO.js";import"./chunk-CVUC3Z4F.js";import"./chunk-WF6KNLYB.js";import"./chunk-VGKISNF5.js";import"./chunk-VPJRLZMB.js";import"./chunk-635BMVFD.js";import"./chunk-Y7Z6CVXH.js";import"./chunk-HHFPYI7Q.js";import"./chunk-SSZI3JCE.js";import"./chunk-LP5YXEIX.js";import"./chunk-AMKKUAL3.js";import"./chunk-WORPNHJT.js";import"./chunk-SWCW4GSU.js";import"./chunk-PZM5FOOW.js";import"./chunk-3MNKUQ6L.js";import"./chunk-J4SK6SKL.js";function n(o,t){let m=e.unpackCombineGeometryParameters(o),i=e.combineGeometry(m);return e.packCombineGeometryResults(i,t)}var c=r(n);export{c as default};

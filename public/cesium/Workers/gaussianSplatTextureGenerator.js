@@ -23,46 +23,4 @@
  * See https://github.com/CesiumGS/cesium/blob/main/LICENSE.md for full licensing details.
  */
 
-import {
-  generate_splat_texture,
-  initSync
-} from "./chunk-XCBZVTIV.js";
-import {
-  createTaskProcessorWorker_default
-} from "./chunk-W5OCKMPJ.js";
-import {
-  defined_default
-} from "./chunk-PCL3Y7H5.js";
-
-// packages/engine/Source/Workers/gaussianSplatTextureGenerator.js
-async function initWorker(parameters, transferableObjects) {
-  const wasmConfig = parameters.webAssemblyConfig;
-  if (defined_default(wasmConfig) && defined_default(wasmConfig.wasmBinary)) {
-    initSync({ module: wasmConfig.wasmBinary });
-    return true;
-  }
-  return false;
-}
-async function generateSplatTextureWorker(parameters, transferableObjects) {
-  const wasmConfig = parameters.webAssemblyConfig;
-  if (defined_default(wasmConfig)) {
-    return initWorker(parameters, transferableObjects);
-  }
-  const { attributes, count } = parameters;
-  const result = generate_splat_texture(
-    attributes.positions,
-    attributes.scales,
-    attributes.rotations,
-    attributes.colors,
-    count
-  );
-  return {
-    data: result.data,
-    width: result.width,
-    height: result.height
-  };
-}
-var gaussianSplatTextureGenerator_default = createTaskProcessorWorker_default(generateSplatTextureWorker);
-export {
-  gaussianSplatTextureGenerator_default as default
-};
+import{a,c}from"./chunk-WNRPPZQ5.js";import{a as i}from"./chunk-RCKN2G6K.js";import{f as n}from"./chunk-J4SK6SKL.js";async function u(t,s){let e=t.webAssemblyConfig;return n(e)&&n(e.wasmBinary)?(c({module:e.wasmBinary}),!0):!1}async function l(t,s){let e=t.webAssemblyConfig;if(n(e))return u(t,s);let{attributes:r,count:f}=t,o=a(r.positions,r.scales,r.rotations,r.colors,f);return{data:o.data,width:o.width,height:o.height}}var w=i(l);export{w as default};

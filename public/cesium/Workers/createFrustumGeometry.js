@@ -23,36 +23,4 @@
  * See https://github.com/CesiumGS/cesium/blob/main/LICENSE.md for full licensing details.
  */
 
-import {
-  FrustumGeometry_default
-} from "./chunk-RASQEYD4.js";
-import "./chunk-DZBQUULR.js";
-import "./chunk-R4K7EHOU.js";
-import "./chunk-IUIFLOYO.js";
-import "./chunk-QIZDWZK6.js";
-import "./chunk-2H5264K7.js";
-import "./chunk-CQNFIAZU.js";
-import "./chunk-CRCGE4J4.js";
-import "./chunk-ERKUET22.js";
-import "./chunk-DSGLDRTI.js";
-import "./chunk-YGFVAGYF.js";
-import "./chunk-FQ42MT7M.js";
-import "./chunk-UAZUP4I5.js";
-import "./chunk-SA2A2AN5.js";
-import "./chunk-ACTVJHSP.js";
-import "./chunk-XLQZNQ4Z.js";
-import {
-  defined_default
-} from "./chunk-PCL3Y7H5.js";
-
-// packages/engine/Source/Workers/createFrustumGeometry.js
-function createFrustumGeometry(frustumGeometry, offset) {
-  if (defined_default(offset)) {
-    frustumGeometry = FrustumGeometry_default.unpack(frustumGeometry, offset);
-  }
-  return FrustumGeometry_default.createGeometry(frustumGeometry);
-}
-var createFrustumGeometry_default = createFrustumGeometry;
-export {
-  createFrustumGeometry_default as default
-};
+import{c as r}from"./chunk-OJFO4LOY.js";import"./chunk-ER474XE6.js";import"./chunk-4XQS6KUO.js";import"./chunk-WF6KNLYB.js";import"./chunk-VGKISNF5.js";import"./chunk-VPJRLZMB.js";import"./chunk-635BMVFD.js";import"./chunk-Y7Z6CVXH.js";import"./chunk-HHFPYI7Q.js";import"./chunk-SSZI3JCE.js";import"./chunk-LP5YXEIX.js";import"./chunk-AMKKUAL3.js";import"./chunk-WORPNHJT.js";import"./chunk-SWCW4GSU.js";import"./chunk-PZM5FOOW.js";import"./chunk-3MNKUQ6L.js";import{f as o}from"./chunk-J4SK6SKL.js";function i(e,t){return o(t)&&(e=r.unpack(e,t)),r.createGeometry(e)}var a=i;export{a as default};

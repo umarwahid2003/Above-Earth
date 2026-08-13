@@ -23,43 +23,4 @@
  * See https://github.com/CesiumGS/cesium/blob/main/LICENSE.md for full licensing details.
  */
 
-import {
-  EllipseOutlineGeometry_default
-} from "./chunk-VZLDLEWI.js";
-import "./chunk-7A2OGDHT.js";
-import "./chunk-SXSP3JHS.js";
-import "./chunk-6FHT43QR.js";
-import "./chunk-IUIFLOYO.js";
-import "./chunk-QIZDWZK6.js";
-import "./chunk-2H5264K7.js";
-import "./chunk-CQNFIAZU.js";
-import "./chunk-CRCGE4J4.js";
-import "./chunk-ERKUET22.js";
-import "./chunk-DSGLDRTI.js";
-import "./chunk-YGFVAGYF.js";
-import "./chunk-FQ42MT7M.js";
-import {
-  Ellipsoid_default
-} from "./chunk-UAZUP4I5.js";
-import {
-  Cartesian3_default
-} from "./chunk-SA2A2AN5.js";
-import "./chunk-ACTVJHSP.js";
-import "./chunk-XLQZNQ4Z.js";
-import {
-  defined_default
-} from "./chunk-PCL3Y7H5.js";
-
-// packages/engine/Source/Workers/createEllipseOutlineGeometry.js
-function createEllipseOutlineGeometry(ellipseGeometry, offset) {
-  if (defined_default(offset)) {
-    ellipseGeometry = EllipseOutlineGeometry_default.unpack(ellipseGeometry, offset);
-  }
-  ellipseGeometry._center = Cartesian3_default.clone(ellipseGeometry._center);
-  ellipseGeometry._ellipsoid = Ellipsoid_default.clone(ellipseGeometry._ellipsoid);
-  return EllipseOutlineGeometry_default.createGeometry(ellipseGeometry);
-}
-var createEllipseOutlineGeometry_default = createEllipseOutlineGeometry;
-export {
-  createEllipseOutlineGeometry_default as default
-};
+import{a as i}from"./chunk-YPTGYRJK.js";import"./chunk-IHTR4QEI.js";import"./chunk-3BERLVP2.js";import"./chunk-CVUC3Z4F.js";import"./chunk-WF6KNLYB.js";import"./chunk-VGKISNF5.js";import"./chunk-VPJRLZMB.js";import"./chunk-635BMVFD.js";import"./chunk-Y7Z6CVXH.js";import"./chunk-HHFPYI7Q.js";import"./chunk-SSZI3JCE.js";import"./chunk-LP5YXEIX.js";import"./chunk-AMKKUAL3.js";import{c}from"./chunk-WORPNHJT.js";import{a as t}from"./chunk-SWCW4GSU.js";import"./chunk-PZM5FOOW.js";import"./chunk-3MNKUQ6L.js";import{f as o}from"./chunk-J4SK6SKL.js";function a(r,n){return o(n)&&(r=i.unpack(r,n)),r._center=t.clone(r._center),r._ellipsoid=c.clone(r._ellipsoid),i.createGeometry(r)}var p=a;export{p as default};

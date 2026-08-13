@@ -234,10 +234,21 @@ export default function CesiumGlobe() {
 
     async function init() {
       try {
-        const cesiumWindow = window as Window & { CESIUM_BASE_URL?: string };
+        const cesiumWindow = window as unknown as {
+          CESIUM_BASE_URL?: string;
+          Cesium?: typeof CesiumNS;
+        };
         cesiumWindow.CESIUM_BASE_URL = "/cesium";
 
-        const Cesium = await import("cesium");
+        const Cesium =
+          cesiumWindow.Cesium ?? (await import("cesium"));
+
+        const buildUrl = Cesium.buildModuleUrl as unknown as {
+          setBaseUrl?: (url: string) => void;
+        };
+        if (typeof buildUrl?.setBaseUrl === "function") {
+          buildUrl.setBaseUrl("/cesium/");
+        }
 
         if (isCancelled || !containerRef.current) return;
         cesiumRef.current = Cesium;

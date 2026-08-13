@@ -4,13 +4,24 @@ import { fileURLToPath } from "node:url";
 
 const rootDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 
-const sourceDir = path.join(
+// Prefer minified production Build/Cesium; fallback to Build/CesiumUnminified
+let sourceDir = path.join(
   rootDir,
   "node_modules",
   "cesium",
   "Build",
-  "CesiumUnminified"
+  "Cesium"
 );
+
+if (!fs.existsSync(sourceDir)) {
+  sourceDir = path.join(
+    rootDir,
+    "node_modules",
+    "cesium",
+    "Build",
+    "CesiumUnminified"
+  );
+}
 
 const assets = ["Assets", "ThirdParty", "Widgets", "Workers"];
 const destinationDir = path.join(rootDir, "public", "cesium");
@@ -25,6 +36,7 @@ if (!fs.existsSync(sourceDir)) {
 fs.rmSync(destinationDir, { recursive: true, force: true });
 fs.mkdirSync(destinationDir, { recursive: true });
 
+// Copy directories
 for (const asset of assets) {
   const from = path.join(sourceDir, asset);
   const to = path.join(destinationDir, asset);
@@ -35,13 +47,15 @@ for (const asset of assets) {
   fs.cpSync(from, to, { recursive: true });
 }
 
-let totalFiles = 0;
-for (const asset of assets) {
-  const dir = path.join(destinationDir, asset);
-  if (fs.existsSync(dir)) {
-    totalFiles += countFiles(dir);
-  }
+// Copy Cesium.js standalone bundle if present
+const cesiumJsFrom = path.join(sourceDir, "Cesium.js");
+const cesiumJsTo = path.join(destinationDir, "Cesium.js");
+if (fs.existsSync(cesiumJsFrom)) {
+  fs.copyFileSync(cesiumJsFrom, cesiumJsTo);
 }
+
+let totalFiles = 0;
+totalFiles += countFiles(destinationDir);
 
 console.log(`Cesium static assets copied to public/cesium (${totalFiles} files).`);
 

@@ -23,39 +23,4 @@
  * See https://github.com/CesiumGS/cesium/blob/main/LICENSE.md for full licensing details.
  */
 
-import {
-  EllipsoidOutlineGeometry_default
-} from "./chunk-YIIACKQO.js";
-import "./chunk-SXSP3JHS.js";
-import "./chunk-6FHT43QR.js";
-import "./chunk-IUIFLOYO.js";
-import "./chunk-QIZDWZK6.js";
-import "./chunk-2H5264K7.js";
-import "./chunk-CQNFIAZU.js";
-import "./chunk-CRCGE4J4.js";
-import "./chunk-ERKUET22.js";
-import "./chunk-DSGLDRTI.js";
-import "./chunk-YGFVAGYF.js";
-import "./chunk-FQ42MT7M.js";
-import "./chunk-UAZUP4I5.js";
-import "./chunk-SA2A2AN5.js";
-import "./chunk-ACTVJHSP.js";
-import "./chunk-XLQZNQ4Z.js";
-import {
-  defined_default
-} from "./chunk-PCL3Y7H5.js";
-
-// packages/engine/Source/Workers/createEllipsoidOutlineGeometry.js
-function createEllipsoidOutlineGeometry(ellipsoidGeometry, offset) {
-  if (defined_default(ellipsoidGeometry.buffer, offset)) {
-    ellipsoidGeometry = EllipsoidOutlineGeometry_default.unpack(
-      ellipsoidGeometry,
-      offset
-    );
-  }
-  return EllipsoidOutlineGeometry_default.createGeometry(ellipsoidGeometry);
-}
-var createEllipsoidOutlineGeometry_default = createEllipsoidOutlineGeometry;
-export {
-  createEllipsoidOutlineGeometry_default as default
-};
+import{a as t}from"./chunk-25AFYL5M.js";import"./chunk-3BERLVP2.js";import"./chunk-CVUC3Z4F.js";import"./chunk-WF6KNLYB.js";import"./chunk-VGKISNF5.js";import"./chunk-VPJRLZMB.js";import"./chunk-635BMVFD.js";import"./chunk-Y7Z6CVXH.js";import"./chunk-HHFPYI7Q.js";import"./chunk-SSZI3JCE.js";import"./chunk-LP5YXEIX.js";import"./chunk-AMKKUAL3.js";import"./chunk-WORPNHJT.js";import"./chunk-SWCW4GSU.js";import"./chunk-PZM5FOOW.js";import"./chunk-3MNKUQ6L.js";import{f as n}from"./chunk-J4SK6SKL.js";function u(r,e){return n(r.buffer,e)&&(r=t.unpack(r,e)),t.createGeometry(r)}var a=u;export{a as default};

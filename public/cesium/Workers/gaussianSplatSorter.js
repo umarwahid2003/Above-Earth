@@ -23,40 +23,4 @@
  * See https://github.com/CesiumGS/cesium/blob/main/LICENSE.md for full licensing details.
  */
 
-import {
-  initSync,
-  radix_sort_gaussians_indexes
-} from "./chunk-XCBZVTIV.js";
-import {
-  createTaskProcessorWorker_default
-} from "./chunk-W5OCKMPJ.js";
-import {
-  defined_default
-} from "./chunk-PCL3Y7H5.js";
-
-// packages/engine/Source/Workers/gaussianSplatSorter.js
-async function initWorker(parameters, transferableObjects) {
-  const wasmConfig = parameters.webAssemblyConfig;
-  if (defined_default(wasmConfig) && defined_default(wasmConfig.wasmBinary)) {
-    initSync({ module: wasmConfig.wasmBinary });
-    return true;
-  }
-}
-function generateGaussianSortWorker(parameters, transferableObjects) {
-  const wasmConfig = parameters.webAssemblyConfig;
-  if (defined_default(wasmConfig)) {
-    return initWorker(parameters, transferableObjects);
-  }
-  const { primitive, sortType } = parameters;
-  if (sortType === "Index") {
-    return radix_sort_gaussians_indexes(
-      primitive.positions,
-      primitive.modelView,
-      primitive.count
-    );
-  }
-}
-var gaussianSplatSorter_default = createTaskProcessorWorker_default(generateGaussianSortWorker);
-export {
-  gaussianSplatSorter_default as default
-};
+import{b as t,c as f}from"./chunk-WNRPPZQ5.js";import{a as s}from"./chunk-RCKN2G6K.js";import{f as o}from"./chunk-J4SK6SKL.js";async function m(i,e){let n=i.webAssemblyConfig;if(o(n)&&o(n.wasmBinary))return f({module:n.wasmBinary}),!0}function c(i,e){let n=i.webAssemblyConfig;if(o(n))return m(i,e);let{primitive:r,sortType:a}=i;if(a==="Index")return t(r.positions,r.modelView,r.count)}var y=s(c);export{y as default};

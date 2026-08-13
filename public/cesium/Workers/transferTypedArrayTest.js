@@ -23,19 +23,4 @@
  * See https://github.com/CesiumGS/cesium/blob/main/LICENSE.md for full licensing details.
  */
 
-
-// packages/engine/Source/Workers/transferTypedArrayTest.js
-self.onmessage = function(event) {
-  const array = event.data.array;
-  const postMessage = self.webkitPostMessage || self.postMessage;
-  try {
-    postMessage(
-      {
-        array
-      },
-      [array.buffer]
-    );
-  } catch (e) {
-    postMessage({});
-  }
-};
+self.onmessage=function(a){let s=a.data.array,e=self.webkitPostMessage||self.postMessage;try{e({array:s},[s.buffer])}catch{e({})}};
