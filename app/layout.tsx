@@ -10,6 +10,13 @@ export const metadata: Metadata = {
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
     <html lang="en" className="h-full antialiased">
+      <head>
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `window.CESIUM_BASE_URL = "/cesium";`,
+          }}
+        />
+      </head>
       <body className="h-full">{children}</body>
     </html>
   );

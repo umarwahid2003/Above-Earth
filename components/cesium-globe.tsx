@@ -233,30 +233,31 @@ export default function CesiumGlobe() {
     let fullBuildToken = 0;
 
     async function init() {
-      const cesiumWindow = window as Window & { CESIUM_BASE_URL?: string };
-      cesiumWindow.CESIUM_BASE_URL = "/cesium";
+      try {
+        const cesiumWindow = window as Window & { CESIUM_BASE_URL?: string };
+        cesiumWindow.CESIUM_BASE_URL = "/cesium";
 
-      const Cesium = await import("cesium");
+        const Cesium = await import("cesium");
 
-      if (isCancelled || !containerRef.current) return;
-      cesiumRef.current = Cesium;
+        if (isCancelled || !containerRef.current) return;
+        cesiumRef.current = Cesium;
 
-      const container = containerRef.current;
+        const container = containerRef.current;
 
-      const cesiumViewer = new Cesium.Viewer(container, {
-        baseLayer: false,
-        animation: false,
-        timeline: false,
-        baseLayerPicker: false,
-        geocoder: false,
-        homeButton: false,
-        sceneModePicker: false,
-        navigationHelpButton: false,
-        fullscreenButton: false,
-        infoBox: false,
-        selectionIndicator: false,
-        shouldAnimate: false,
-      });
+        const cesiumViewer = new Cesium.Viewer(container, {
+          baseLayer: false,
+          animation: false,
+          timeline: false,
+          baseLayerPicker: false,
+          geocoder: false,
+          homeButton: false,
+          sceneModePicker: false,
+          navigationHelpButton: false,
+          fullscreenButton: false,
+          infoBox: false,
+          selectionIndicator: false,
+          shouldAnimate: true,
+        });
 
       viewer = cesiumViewer;
       viewerRef.current = cesiumViewer;
@@ -530,6 +531,8 @@ export default function CesiumGlobe() {
 
       const rebuildPropagated = (records: SatelliteRecord[]) => {
         const parsed: PropagatedSat[] = [];
+        const now = Cesium.JulianDate.toDate(clock.currentTime);
+        const gmst = gstime(now);
         for (const record of records) {
           try {
             const satrec = twoline2satrec(record.line1, record.line2);
@@ -540,6 +543,13 @@ export default function CesiumGlobe() {
               category: record.category,
               satrec,
             });
+            const pv = propagate(satrec, now);
+            if (pv && pv.position) {
+              const ecf = eciToEcf(pv.position, gmst);
+              if (Number.isFinite(ecf.x) && Number.isFinite(ecf.y) && Number.isFinite(ecf.z)) {
+                currentPositions.set(record.id, new Cesium.Cartesian3(ecf.x * 1000, ecf.y * 1000, ecf.z * 1000));
+              }
+            }
             if (!entities.has(record.id)) createEntity(record);
           } catch {
             continue;
@@ -553,6 +563,8 @@ export default function CesiumGlobe() {
         setValidCount(propagated.length);
       };
 
+      const initNow = Cesium.JulianDate.toDate(clock.currentTime);
+      const initGmst = gstime(initNow);
       for (const record of dataRef.current) {
         try {
           const satrec = twoline2satrec(record.line1, record.line2);
@@ -563,6 +575,13 @@ export default function CesiumGlobe() {
             category: record.category,
             satrec,
           });
+          const pv = propagate(satrec, initNow);
+          if (pv && pv.position) {
+            const ecf = eciToEcf(pv.position, initGmst);
+            if (Number.isFinite(ecf.x) && Number.isFinite(ecf.y) && Number.isFinite(ecf.z)) {
+              currentPositions.set(record.id, new Cesium.Cartesian3(ecf.x * 1000, ecf.y * 1000, ecf.z * 1000));
+            }
+          }
         } catch {
           continue;
         }
@@ -1290,7 +1309,12 @@ export default function CesiumGlobe() {
         applyFullCatalog,
         applyFullVisibility,
       };
+
+      handleTick(clock);
+    } catch (err) {
+      console.error("Cesium initialization error:", err);
     }
+  }
 
     init();
 
