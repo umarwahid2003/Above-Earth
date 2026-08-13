@@ -1,6 +1,7 @@
 import { promises as fs } from "node:fs";
 import path from "node:path";
 import { TLES } from "@/data/tles";
+import activeCatalogData from "@/data/active-catalog.json";
 import type { OrbitalDataSource } from "@/store/satellites";
 import type { CatalogRecord, SatelliteRecord } from "@/lib/types";
 
@@ -369,12 +370,20 @@ function fullCatalogResponse(
   };
 }
 
+function fallbackFullCatalog(): FullCatalogResponse {
+  const satellites = (activeCatalogData.satellites as CatalogRecord[]) || [];
+  return {
+    source: "cache",
+    lastUpdated: activeCatalogData.lastUpdated || new Date().toISOString(),
+    isStale: true,
+    count: satellites.length,
+    satellites,
+  };
+}
+
 /**
  * Return the full active-satellite catalog. Prefers fresh CelesTrak data;
- * falls back to the on-disk cache when a fetch fails. Unlike the Explore
- * pipeline there is NO checked-in catalog to fall back to, so with neither
- * cache nor a successful fetch this throws (the route responds 503) rather
- * than silently showing the 123-satellite Explore catalog.
+ * falls back to the on-disk cache or bundled active catalog when a fetch fails (e.g. rate limit).
  */
 export async function getFullCatalog(): Promise<FullCatalogResponse> {
   const cached = await readFullCache();
@@ -387,17 +396,13 @@ export async function getFullCatalog(): Promise<FullCatalogResponse> {
   try {
     const tles = await getActiveTles();
     if (tles.size === 0) {
-      throw new FullCatalogError(
-        "FULL_CATALOG_EMPTY",
-        "CelesTrak returned no active-satellite elements."
-      );
+      if (cached) return fullCatalogResponse(cached, "cache", true);
+      return fallbackFullCatalog();
     }
     const satellites = toCatalogRecords(tles);
     if (satellites.length === 0) {
-      throw new FullCatalogError(
-        "FULL_CATALOG_INVALID",
-        "CelesTrak responded but no valid records could be parsed."
-      );
+      if (cached) return fullCatalogResponse(cached, "cache", true);
+      return fallbackFullCatalog();
     }
     const entry: FullCatalogCacheEntry = { fetchedAt: now, satellites };
     await writeFullCache(entry);
@@ -405,6 +410,11 @@ export async function getFullCatalog(): Promise<FullCatalogResponse> {
   } catch (error) {
     if (cached) {
       return fullCatalogResponse(cached, "cache", true);
+    }
+    // Return bundled active catalog snapshot when live CelesTrak is rate-limited (HTTP 403) or offline
+    const fallback = fallbackFullCatalog();
+    if (fallback.satellites.length > 0) {
+      return fallback;
     }
     // Attach the underlying error as `cause` so the route can log it without
     // leaking internals to the client.
