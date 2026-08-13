@@ -29,22 +29,22 @@ export default function OrbitPathControl() {
 
   return (
     <div className="pointer-events-none flex flex-col items-center gap-1.5">
-      <div className="pointer-events-auto flex items-center gap-2 rounded-full border border-white/10 bg-[#0b0b0d]/80 px-3 py-1.5 shadow-2xl shadow-black/60 backdrop-blur-md">
-        <span className="flex items-center gap-1.5 pr-1 text-[11px] font-medium uppercase tracking-wide text-neutral-500">
-          <Orbit className="size-3.5 text-neutral-400" />
-          Orbit paths
+      <div className="pointer-events-auto flex items-center gap-1.5 rounded-[3px] border border-white/20 bg-[#08080a]/90 px-2.5 py-1 shadow-2xl shadow-black/80 backdrop-blur-xl">
+        <span className="flex items-center gap-1 pr-1 text-[10px] font-bold uppercase tracking-widest text-neutral-400">
+          <Orbit className="size-3 text-white" />
+          ORBIT PATHS
         </span>
-        <div className="h-4 w-px bg-white/10" />
+        <div className="h-3.5 w-px bg-white/15" />
         {MODES.map((mode) => (
           <button
             key={mode.value}
             onClick={() => setOrbitMode(mode.value)}
             aria-pressed={orbitMode === mode.value}
             className={cn(
-              "rounded-full px-2.5 py-1 text-xs font-semibold transition-colors",
+              "rounded-[2px] px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider transition-colors",
               orbitMode === mode.value
-                ? "bg-white text-black"
-                : "text-neutral-500 hover:bg-white/[0.07] hover:text-neutral-200"
+                ? "bg-white text-black shadow-xs"
+                : "text-neutral-400 hover:bg-white/[0.08] hover:text-white"
             )}
           >
             {mode.label}
@@ -52,9 +52,8 @@ export default function OrbitPathControl() {
         ))}
       </div>
       {orbitMode === "all" && (
-        <p className="pointer-events-none text-center text-[11px] text-neutral-500">
-          Showing paths for {visibleCount} filtered satellite
-          {visibleCount === 1 ? "" : "s"} — lower detail to stay smooth.
+        <p className="pointer-events-none text-center font-mono text-[10px] uppercase tracking-wider text-neutral-500">
+          {visibleCount} ACTIVE TRAJECTORIES PROPAGATED
         </p>
       )}
     </div>

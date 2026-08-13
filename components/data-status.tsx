@@ -51,35 +51,35 @@ export default function DataStatus() {
       const stageLabel =
         fullCatalogStage && fullCatalogStage !== "done"
           ? STAGE_LABEL[fullCatalogStage]
-          : "Loading full catalog";
+          : "LOADING FULL CATALOG";
       return (
-        <p className="pointer-events-none flex items-center justify-center gap-1.5 text-center text-[11px] text-neutral-500">
-          <Radio className="size-3 shrink-0 text-neutral-200" />
-          <span className="text-neutral-200">{stageLabel}</span>
-          <span>· from CelesTrak</span>
+        <p className="pointer-events-none flex items-center justify-center gap-1.5 text-center font-mono text-[10px] uppercase tracking-wider text-neutral-400">
+          <Radio className="size-3 shrink-0 text-white animate-pulse" />
+          <span className="font-bold text-white">{stageLabel}</span>
+          <span>· CELESTRAK FEED</span>
         </p>
       );
     }
     if (fullCatalogStatus === "error") {
       return (
-        <p className="pointer-events-none flex items-center justify-center gap-1.5 text-center text-[11px] text-neutral-500">
-          <CloudOff className="size-3 shrink-0 text-neutral-400" />
-          <span className="text-neutral-300">Full catalog unavailable</span>
-          <span>· retry from the browser</span>
+        <p className="pointer-events-none flex items-center justify-center gap-1.5 text-center font-mono text-[10px] uppercase tracking-wider text-neutral-400">
+          <CloudOff className="size-3 shrink-0 text-red-400" />
+          <span className="font-semibold text-red-300">FULL CATALOG OFFLINE</span>
+          <span>· RETRY FROM PANEL</span>
         </p>
       );
     }
     if (fullCatalogStatus === "ready" && fullCatalogSource) {
       const fullRelative = formatRelative(fullCatalogUpdated, now);
       return (
-        <p className="pointer-events-none flex items-center justify-center gap-1.5 text-center text-[11px] text-neutral-500">
-          <Radio className="size-3 shrink-0 text-neutral-200" />
-          <span className="text-neutral-200">
-            Full catalog · {fullCatalogCount.toLocaleString("en-US")} active
+        <p className="pointer-events-none flex items-center justify-center gap-1.5 text-center font-mono text-[10px] uppercase tracking-wider text-neutral-400">
+          <Radio className="size-3 shrink-0 text-white" />
+          <span className="font-bold text-white">
+            CATALOG · {fullCatalogCount.toLocaleString("en-US")} ACTIVE
           </span>
           <span>
-            · {fullCatalogSource === "celestrak" ? "from CelesTrak" : "cached"}
-            {fullRelative ? `, updated ${fullRelative}` : ""}
+            · {fullCatalogSource === "celestrak" ? "CELESTRAK" : "CACHED"}
+            {fullRelative ? ` (${fullRelative})` : ""}
           </span>
         </p>
       );
@@ -91,24 +91,24 @@ export default function DataStatus() {
 
   if (source === "celestrak") {
     return (
-      <p className="pointer-events-none flex items-center justify-center gap-1.5 text-center text-[11px] text-neutral-500">
-        <Radio className="size-3 shrink-0 text-neutral-200" />
-        <span className="text-neutral-200">Live elements</span>
-        <span>· from CelesTrak, updated {relative}</span>
+      <p className="pointer-events-none flex items-center justify-center gap-1.5 text-center font-mono text-[10px] uppercase tracking-wider text-neutral-400">
+        <Radio className="size-3 shrink-0 text-white" />
+        <span className="font-bold text-white">LIVE TELEMETRY</span>
+        <span>· CELESTRAK ({relative})</span>
       </p>
     );
   }
 
-  const storedSource = source === "cache" ? "cached" : "bundled catalog";
+  const storedSource = source === "cache" ? "CACHED" : "BUNDLED";
 
   return (
-    <p className="pointer-events-none flex items-center justify-center gap-1.5 text-center text-[11px] text-neutral-500">
+    <p className="pointer-events-none flex items-center justify-center gap-1.5 text-center font-mono text-[10px] uppercase tracking-wider text-neutral-400">
       <CloudOff className="size-3 shrink-0 text-neutral-400" />
-      <span className="text-neutral-300">
-        Using {storedSource} orbital data
+      <span className="font-bold text-neutral-200">
+        {storedSource} ORBITAL SNAPSHOT
       </span>
-      {isStale && <span className="text-neutral-400">(stale)</span>}
-      {relative && <span>· updated {relative}</span>}
+      {isStale && <span className="text-neutral-500">(STALE)</span>}
+      {relative && <span>· {relative}</span>}
     </p>
   );
 }

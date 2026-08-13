@@ -97,8 +97,6 @@ export default function SatellitePanel() {
   const fullCatalogStatus = useSatelliteStore(
     (state) => state.fullCatalogStatus
   );
-  const fullCatalogError = useSatelliteStore((state) => state.fullCatalogError);
-  const fullCatalogCode = useSatelliteStore((state) => state.fullCatalogCode);
   const fullCatalogCount = useSatelliteStore((state) => state.fullCatalogCount);
   const fullCatalogStage = useSatelliteStore((state) => state.fullCatalogStage);
   const fullCatalogFetchId = useSatelliteStore(
@@ -289,7 +287,7 @@ export default function SatellitePanel() {
         onClick={() => setOpen(true)}
         aria-label="Open satellite browser"
         aria-expanded={open}
-        className="fixed left-4 top-4 z-20 flex size-10 items-center justify-center rounded-2xl border border-white/10 bg-[#0b0b0d]/80 text-neutral-300 shadow-2xl shadow-black/60 backdrop-blur-md transition-colors hover:text-white sm:left-5 sm:top-5"
+        className="fixed left-4 top-4 z-20 flex size-10 items-center justify-center rounded-[3px] border border-white/20 bg-[#08080a]/90 text-neutral-300 shadow-2xl shadow-black/80 backdrop-blur-xl transition-all hover:border-white/40 hover:text-white sm:left-5 sm:top-5"
       >
         <List className="size-4.5" />
       </button>
@@ -298,7 +296,7 @@ export default function SatellitePanel() {
         <div
           onClick={() => setOpen(false)}
           aria-hidden="true"
-          className="fixed inset-0 z-20 bg-black/60 backdrop-blur-[2px] md:hidden"
+          className="fixed inset-0 z-20 bg-black/75 backdrop-blur-xs md:hidden"
         />
       )}
 
@@ -308,38 +306,38 @@ export default function SatellitePanel() {
         aria-label="Satellite browser"
         inert={!open}
         className={cn(
-          "fixed inset-y-0 left-0 z-30 flex w-[19rem] max-w-[calc(100vw-2rem)] flex-col gap-3 p-4 transition-transform duration-300 ease-out will-change-transform",
-          "md:inset-y-auto md:bottom-auto md:left-4 md:top-4 md:max-h-[calc(100dvh-10rem)] md:w-[19rem] md:p-0",
+          "fixed inset-y-0 left-0 z-30 flex w-[19.5rem] max-w-[calc(100vw-2rem)] flex-col gap-2.5 p-3 transition-transform duration-300 ease-out will-change-transform",
+          "md:inset-y-auto md:bottom-auto md:left-4 md:top-4 md:max-h-[calc(100dvh-10rem)] md:w-[19.5rem] md:p-0",
           open ? "translate-x-0" : "-translate-x-full"
         )}
       >
-        <div className="shrink-0 rounded-2xl border border-white/10 bg-[#0b0b0d]/80 p-4 shadow-2xl shadow-black/60 backdrop-blur-md">
+        <div className="shrink-0 rounded-[4px] border border-white/20 bg-[#08080a]/90 p-3.5 shadow-2xl shadow-black/80 backdrop-blur-xl">
           <div className="flex items-center gap-2.5">
-            <div className="flex size-8 items-center justify-center rounded-lg bg-white/10 ring-1 ring-white/20 overflow-hidden">
+            <div className="flex size-8 items-center justify-center rounded-[2px] bg-white/10 ring-1 ring-white/20 overflow-hidden">
               <Image src="/logo.png" alt="Above Earth logo" width={32} height={32} className="size-full object-cover" />
             </div>
             <div className="min-w-0 flex-1">
-              <h1 className="truncate text-lg font-semibold tracking-tight text-white">
+              <h1 className="truncate text-base font-bold uppercase tracking-wider text-white">
                 Above <span className="text-neutral-400">Earth</span>
               </h1>
-              <p className="text-xs text-neutral-500">
+              <p className="text-[11px] font-medium tracking-wide text-neutral-400">
                 {catalogMode === "full" ? (
                   fullCatalogStatus === "ready" ? (
                     <>
-                      <span className="font-mono font-semibold text-white tabular-nums">
+                      <span className="font-mono font-bold text-white tabular-nums">
                         {fullCatalogCount.toLocaleString("en-US")}
                       </span>{" "}
-                      active satellites
+                      ACTIVE OBJECTS
                     </>
                   ) : (
-                    "Full catalog"
+                    "FULL CATALOG"
                   )
                 ) : (
                   <>
-                    <span className="font-mono font-semibold text-white tabular-nums">
+                    <span className="font-mono font-bold text-white tabular-nums">
                       {validCount}
                     </span>{" "}
-                    satellites
+                    SATELLITES
                   </>
                 )}
               </p>
@@ -347,57 +345,57 @@ export default function SatellitePanel() {
             <button
               onClick={() => setOpen(false)}
               aria-label="Close satellite browser"
-              className="flex size-7 shrink-0 items-center justify-center rounded-lg text-neutral-400 transition-colors hover:bg-white/10 hover:text-neutral-200"
+              className="flex size-7 shrink-0 items-center justify-center rounded-[2px] text-neutral-400 transition-colors hover:bg-white/15 hover:text-white"
             >
               <X className="size-4" />
             </button>
           </div>
 
-          <div className="mt-4 grid grid-cols-2 gap-1 rounded-xl border border-white/10 bg-white/[0.02] p-1">
+          <div className="mt-3 grid grid-cols-2 gap-1 rounded-[2px] border border-white/15 bg-white/[0.03] p-1">
             <button
               onClick={() => setCatalogMode("explore")}
               aria-pressed={catalogMode === "explore"}
               className={cn(
-                "flex min-w-0 flex-col items-start rounded-lg px-3 py-2 text-left transition-colors",
+                "flex min-w-0 flex-col items-start rounded-[2px] px-2.5 py-1.5 text-left transition-colors",
                 catalogMode === "explore"
-                  ? "bg-white/10 ring-1 ring-white/25"
-                  : "hover:bg-white/[0.05]"
+                  ? "bg-white text-black font-semibold shadow-xs"
+                  : "text-neutral-300 hover:bg-white/[0.08]"
               )}
             >
-              <span className="flex w-full items-center justify-between gap-1 text-xs font-semibold text-neutral-100">
+              <span className="flex w-full items-center justify-between gap-1 text-[11px] font-bold uppercase tracking-wider">
                 <span>Explore</span>
-                <span className="font-mono text-[11px] text-neutral-400 tabular-nums">
+                <span className={cn("font-mono text-[10px] tabular-nums", catalogMode === "explore" ? "text-black/70" : "text-neutral-400")}>
                   {validCount}
                 </span>
               </span>
-              <span className="text-[10px] text-neutral-500">
-                Curated selection
+              <span className={cn("text-[9px] uppercase tracking-wide", catalogMode === "explore" ? "text-black/60" : "text-neutral-500")}>
+                Curated
               </span>
             </button>
             <button
               onClick={() => setCatalogMode("full")}
               aria-pressed={catalogMode === "full"}
               className={cn(
-                "flex min-w-0 flex-col items-start rounded-lg px-3 py-2 text-left transition-colors",
+                "flex min-w-0 flex-col items-start rounded-[2px] px-2.5 py-1.5 text-left transition-colors",
                 catalogMode === "full"
-                  ? "bg-white/10 ring-1 ring-white/25"
-                  : "hover:bg-white/[0.05]"
+                  ? "bg-white text-black font-semibold shadow-xs"
+                  : "text-neutral-300 hover:bg-white/[0.08]"
               )}
             >
-              <span className="flex w-full items-center justify-between gap-1 text-xs font-semibold text-neutral-100">
+              <span className="flex w-full items-center justify-between gap-1 text-[11px] font-bold uppercase tracking-wider">
                 <span>Full Catalog</span>
-                <span className="font-mono text-[11px] text-neutral-400 tabular-nums">
+                <span className={cn("font-mono text-[10px] tabular-nums", catalogMode === "full" ? "text-black/70" : "text-neutral-400")}>
                   {fullCountLabel}
                 </span>
               </span>
-              <span className="text-[10px] text-neutral-500">
-                Active satellites
+              <span className={cn("text-[9px] uppercase tracking-wide", catalogMode === "full" ? "text-black/60" : "text-neutral-500")}>
+                Global
               </span>
             </button>
           </div>
 
-          <div className="relative mt-3">
-            <Search className="pointer-events-none absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-neutral-500" />
+          <div className="relative mt-2.5">
+            <Search className="pointer-events-none absolute left-2.5 top-1/2 size-3.5 -translate-y-1/2 text-neutral-500" />
             <input
               value={query}
               onChange={(event) => setQuery(event.target.value)}
@@ -406,21 +404,21 @@ export default function SatellitePanel() {
                   ? "Search name or NORAD ID…"
                   : "Search satellites…"
               }
-              className="w-full rounded-xl border border-white/10 bg-white/[0.04] py-2 pl-8 pr-8 text-sm text-neutral-100 placeholder:text-neutral-500 focus:border-white/40 focus:outline-none focus:ring-2 focus:ring-white/15"
+              className="w-full rounded-[2px] border border-white/15 bg-white/[0.04] py-1.5 pl-8 pr-8 text-xs font-medium text-neutral-100 placeholder:text-neutral-500 focus:border-white/50 focus:outline-none focus:ring-1 focus:ring-white/25"
             />
             {query && (
               <button
                 onClick={() => setQuery("")}
                 aria-label="Clear search"
-                className="absolute right-2 top-1/2 flex size-5 -translate-y-1/2 items-center justify-center rounded-md text-neutral-500 hover:bg-white/10 hover:text-neutral-200"
+                className="absolute right-2 top-1/2 flex size-4 -translate-y-1/2 items-center justify-center rounded-[2px] text-neutral-400 hover:bg-white/10 hover:text-white"
               >
-                <X className="size-3.5" />
+                <X className="size-3" />
               </button>
             )}
           </div>
 
           {catalogMode === "explore" && (
-            <div className="nice-scroll mt-3 flex items-center gap-1.5 overflow-x-auto pb-0.5">
+            <div className="nice-scroll mt-2.5 flex items-center gap-1 overflow-x-auto pb-0.5">
               <FilterChip
                 active={category === "All"}
                 onClick={() => setCategory("All")}
@@ -443,7 +441,7 @@ export default function SatellitePanel() {
             fullCatalogStage !== null &&
             fullCatalogStage !== "processing" &&
             fullCatalogStage !== "rendering" && (
-              <div className="mt-3 flex flex-wrap gap-1.5">
+              <div className="mt-2.5 flex flex-wrap gap-1">
                 <ObjectToggle
                   active={showActive}
                   onClick={() => setShowActive(!showActive)}
@@ -453,7 +451,7 @@ export default function SatellitePanel() {
                 <ObjectToggle
                   active={showRocketBodies}
                   onClick={() => setShowRocketBodies(!showRocketBodies)}
-                  label="Rocket bodies"
+                  label="R/B"
                   count={fullCounts.rocketBody}
                 />
                 <ObjectToggle
@@ -465,62 +463,40 @@ export default function SatellitePanel() {
               </div>
             )}
 
-          {catalogMode === "full" && stagedLabel && (
-            <div className="mt-3 flex items-center gap-2 rounded-xl border border-white/10 bg-white/[0.02] px-3 py-2.5 text-xs text-neutral-400">
-              <Loader2 className="size-3.5 shrink-0 animate-spin text-neutral-300" />
-              <span>{stagedLabel}</span>
-            </div>
-          )}
-
           {catalogMode === "full" && fullCatalogStatus === "error" && (
-            <div className="mt-3 rounded-xl border border-white/20 bg-white/[0.03] p-3" role="alert">
-              <p className="text-xs leading-relaxed text-neutral-300">
-                {fullCatalogError ?? FULL_CATALOG_ERROR_MESSAGE}
-              </p>
-              {fullCatalogCode && (
-                <p className="mt-1 font-mono text-[10px] uppercase tracking-wide text-neutral-500">
-                  {fullCatalogCode}
-                </p>
-              )}
-              <div className="mt-2 flex gap-2">
-                <button
-                  onClick={() => resetFullCatalog()}
-                  className="inline-flex items-center gap-1.5 rounded-lg bg-white px-2.5 py-1.5 text-xs font-semibold text-black transition-colors hover:bg-neutral-200"
-                >
-                  <RefreshCw className="size-3.5" /> Retry
-                </button>
-                <button
-                  onClick={() => setCatalogMode("explore")}
-                  className="inline-flex items-center gap-1.5 rounded-lg border border-white/10 px-2.5 py-1.5 text-xs font-medium text-neutral-300 transition-colors hover:bg-white/[0.06] hover:text-neutral-100"
-                >
-                  Back to Explore
-                </button>
-              </div>
+            <div className="mt-2.5 flex items-center justify-between gap-2 rounded-[2px] border border-red-500/20 bg-red-500/10 px-2.5 py-1.5 text-xs text-red-200">
+              <span className="truncate">Catalog unreachable</span>
+              <button
+                onClick={() => resetFullCatalog()}
+                className="inline-flex items-center gap-1 rounded-[2px] bg-red-500/20 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-red-100 hover:bg-red-500/30"
+              >
+                <RefreshCw className="size-3" /> Retry
+              </button>
             </div>
           )}
         </div>
 
-        <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-2xl border border-white/10 bg-[#0b0b0d]/80 shadow-2xl shadow-black/60 backdrop-blur-md">
+        <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-[4px] border border-white/20 bg-[#08080a]/90 shadow-2xl shadow-black/80 backdrop-blur-xl">
           {catalogMode === "full" && stagedLabel && (
-            <div className="flex min-h-0 flex-1 flex-col items-center justify-center gap-2 p-6 text-center text-sm text-neutral-500">
-              <Loader2 className="size-5 animate-spin text-neutral-300" />
-              <p>{stagedLabel}…</p>
+            <div className="flex min-h-0 flex-1 flex-col items-center justify-center gap-2 p-6 text-center text-xs text-neutral-400">
+              <Loader2 className="size-4 animate-spin text-white" />
+              <p className="font-mono uppercase tracking-wider">{stagedLabel}…</p>
             </div>
           )}
 
           {catalogMode === "full" &&
             fullCatalogStatus === "error" &&
             !stagedLabel && (
-              <div className="flex min-h-0 flex-1 flex-col items-center justify-center gap-1 p-6 text-center text-sm text-neutral-500">
-                <p>The Full Catalog could not be loaded.</p>
-                <p className="text-xs text-neutral-600">Use Retry above to try again.</p>
+              <div className="flex min-h-0 flex-1 flex-col items-center justify-center gap-1 p-6 text-center text-xs text-neutral-400">
+                <p>Full Catalog unavailable.</p>
+                <p className="text-[10px] text-neutral-600">Use Retry above to reconnect.</p>
               </div>
             )}
 
           {!(catalogMode === "full" && stagedLabel) && !(
             catalogMode === "full" && fullCatalogStatus === "error"
           ) && (
-            <ul className="nice-scroll min-h-0 flex-1 overflow-y-auto p-1.5">
+            <ul className="nice-scroll min-h-0 flex-1 overflow-y-auto p-1 space-y-0.5">
               {list.map((record) => {
                 const active = record.id === selectedId;
                 const isFullRecord = "objectType" in record;
@@ -543,24 +519,24 @@ export default function SatellitePanel() {
                       onClick={() => setSelectedId(record.id)}
                       aria-pressed={active}
                       className={cn(
-                        "flex w-full items-center gap-2.5 rounded-xl px-2.5 py-2 text-left transition-colors",
+                        "flex w-full items-center gap-2 rounded-[2px] px-2 py-1.5 text-left transition-colors",
                         active
-                          ? "bg-white/10 ring-1 ring-white/25"
-                          : "hover:bg-white/[0.05]"
+                          ? "bg-white text-black font-semibold shadow-xs"
+                          : "hover:bg-white/[0.06]"
                       )}
                     >
-                      <span className="shrink-0 text-neutral-500">
+                      <span className={cn("shrink-0", active ? "text-black" : "text-neutral-500")}>
                         {isFullRecord ? (
-                          <Orbit className="size-3.5" />
+                          <Orbit className="size-3" />
                         ) : Glyph ? (
-                          <Glyph className="size-3.5" />
+                          <Glyph className="size-3" />
                         ) : null}
                       </span>
                       <span className="min-w-0 flex-1">
-                        <span className="block truncate text-[13px] font-medium text-neutral-100">
+                        <span className={cn("block truncate text-xs font-semibold uppercase tracking-wide", active ? "text-black" : "text-neutral-100")}>
                           {record.name}
                         </span>
-                        <span className="block truncate text-[11px] text-neutral-500">
+                        <span className={cn("block truncate font-mono text-[10px]", active ? "text-black/70" : "text-neutral-500")}>
                           {record.noradId} · {meta}
                         </span>
                       </span>
@@ -569,8 +545,8 @@ export default function SatellitePanel() {
                 );
               })}
               {list.length === 0 && (
-                <li className="px-3 py-6 text-center text-sm text-neutral-500">
-                  No satellites match your filters.
+                <li className="px-3 py-6 text-center text-xs text-neutral-500 uppercase tracking-wide">
+                  No satellites match filters.
                 </li>
               )}
             </ul>
@@ -579,10 +555,9 @@ export default function SatellitePanel() {
           {catalogMode === "full" &&
             fullCatalogStatus === "ready" &&
             fullFiltered.length > FULL_LIST_LIMIT && (
-              <p className="border-t border-white/10 px-3 py-2 text-center text-[11px] text-neutral-500">
-                Showing first {FULL_LIST_LIMIT} of{" "}
-                {fullFiltered.length.toLocaleString("en-US")} — refine your
-                search to see more.
+              <p className="border-t border-white/15 px-3 py-1.5 text-center font-mono text-[10px] text-neutral-500">
+                SHOWING {FULL_LIST_LIMIT} OF{" "}
+                {fullFiltered.length.toLocaleString("en-US")}
               </p>
             )}
         </div>
@@ -607,13 +582,13 @@ function FilterChip({
     <button
       onClick={onClick}
       className={cn(
-        "inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full border px-2.5 py-1 text-[11px] font-medium transition-colors",
+        "inline-flex shrink-0 items-center gap-1 whitespace-nowrap rounded-[2px] border px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider transition-colors",
         active
           ? "border-white bg-white text-black"
-          : "border-white/10 bg-white/[0.02] text-neutral-400 hover:bg-white/[0.06] hover:text-neutral-200"
+          : "border-white/15 bg-white/[0.02] text-neutral-400 hover:border-white/30 hover:bg-white/[0.06] hover:text-white"
       )}
     >
-      {Glyph ? <Glyph className="size-3" /> : null}
+      {Glyph ? <Glyph className="size-2.5" /> : null}
       {label}
     </button>
   );
@@ -635,17 +610,17 @@ function ObjectToggle({
       onClick={onClick}
       aria-pressed={active}
       className={cn(
-        "inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full border px-2.5 py-1 text-[11px] font-medium transition-colors",
+        "inline-flex shrink-0 items-center gap-1 whitespace-nowrap rounded-[2px] border px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider transition-colors",
         active
           ? "border-white bg-white text-black"
-          : "border-white/10 bg-white/[0.02] text-neutral-400 hover:bg-white/[0.06] hover:text-neutral-200"
+          : "border-white/15 bg-white/[0.02] text-neutral-400 hover:border-white/30 hover:bg-white/[0.06] hover:text-white"
       )}
     >
       {label}
       <span
         className={cn(
-          "font-mono text-[10px] tabular-nums",
-          active ? "text-black/60" : "text-neutral-500"
+          "font-mono text-[9px] tabular-nums",
+          active ? "text-black/70" : "text-neutral-500"
         )}
       >
         {count.toLocaleString("en-US")}
