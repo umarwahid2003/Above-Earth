@@ -28,8 +28,34 @@ const GROUPS = [
   "military",
   "radar",
   "amateur",
-  "active"
+  "active",
+  "fengyun-1c-debris",
+  "cosmos-2251-debris",
+  "iridium-33-debris"
 ];
+
+function detectObjectType(name, group) {
+  const upper = name.toUpperCase();
+  if (
+    group?.toLowerCase().includes("debris") ||
+    /\b(DEB|DEBRIS|FRAG|FRAGMENT|COOLANT|SHROUD|DISCARDED|COVER)\b/.test(upper) ||
+    upper.includes(" DEB") ||
+    upper.endsWith(" DEB") ||
+    upper.includes(" DEBRIS")
+  ) {
+    return "debris";
+  }
+  if (
+    group?.toLowerCase().includes("rocket") ||
+    /\b(R\/B|ROCKET BODY|STAGE|CENTAUR|BREEZE-M|FREGAT|TITAN 3C)\b/.test(upper) ||
+    upper.includes(" R/B") ||
+    upper.endsWith(" R/B") ||
+    upper.includes("ROCKET BODY")
+  ) {
+    return "rocketBody";
+  }
+  return "active";
+}
 
 function parseTles(text, groupName) {
   const lines = text.replace(/\r/g, "").split("\n").map(l => l.trimEnd());
@@ -45,7 +71,7 @@ function parseTles(text, groupName) {
       id: `cat-${noradId}`,
       name,
       noradId,
-      objectType: "active",
+      objectType: detectObjectType(name, groupName),
       line1,
       line2,
       group: groupName,
@@ -80,24 +106,29 @@ async function run() {
           newCount++;
         }
       }
-      console.log(`✓ Group [${group}]: +${newCount} new satellites (${parsed.length} total in group)`);
+      console.log(`✓ Group [${group}]: +${newCount} new objects (${parsed.length} total in group)`);
     } catch (e) {
       console.warn(`Error fetching ${group}:`, e.message);
     }
   }
 
-  const allSatellites = Array.from(satelliteMap.values()).sort((a, b) => a.noradId - b.noradId);
-  console.log(`\nTotal unique active satellites collected: ${allSatellites.length}`);
+  const allObjects = Array.from(satelliteMap.values()).sort((a, b) => a.noradId - b.noradId);
+  const counts = { active: 0, rocketBody: 0, debris: 0 };
+  for (const obj of allObjects) {
+    counts[obj.objectType] = (counts[obj.objectType] || 0) + 1;
+  }
+  console.log(`\nTotal unique orbital objects collected: ${allObjects.length}`);
+  console.log(`Active: ${counts.active}, Rocket Bodies (R/B): ${counts.rocketBody}, Debris: ${counts.debris}`);
 
-  if (allSatellites.length > 0) {
+  if (allObjects.length > 0) {
     const snapshot = {
       source: "catalog",
       lastUpdated: new Date().toISOString(),
-      count: allSatellites.length,
-      satellites: allSatellites,
+      count: allObjects.length,
+      satellites: allObjects,
     };
     fs.writeFileSync(outputFile, JSON.stringify(snapshot), "utf8");
-    console.log(`Saved ${allSatellites.length} satellites to ${outputFile}`);
+    console.log(`Saved ${allObjects.length} objects to ${outputFile}`);
   }
 }
 

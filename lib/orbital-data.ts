@@ -3,7 +3,7 @@ import path from "node:path";
 import { TLES } from "@/data/tles";
 import activeCatalogData from "@/data/active-catalog.json";
 import type { OrbitalDataSource } from "@/store/satellites";
-import type { CatalogRecord, SatelliteRecord } from "@/lib/types";
+import type { CatalogObjectType, CatalogRecord, SatelliteRecord } from "@/lib/types";
 
 const CACHE_TTL_MS = 6 * 60 * 60 * 1000;
 const CACHE_DIR = path.join(process.cwd(), ".cache");
@@ -340,6 +340,27 @@ function countUpdated(satellites: SatelliteRecord[]): number {
   }).length;
 }
 
+export function detectCatalogObjectType(name: string): CatalogObjectType {
+  const upper = name.toUpperCase();
+  if (
+    /\b(DEB|DEBRIS|FRAG|FRAGMENT|COOLANT|SHROUD|DISCARDED|COVER)\b/.test(upper) ||
+    upper.includes(" DEB") ||
+    upper.endsWith(" DEB") ||
+    upper.includes(" DEBRIS")
+  ) {
+    return "debris";
+  }
+  if (
+    /\b(R\/B|ROCKET BODY|STAGE|CENTAUR|BREEZE-M|FREGAT|TITAN 3C)\b/.test(upper) ||
+    upper.includes(" R/B") ||
+    upper.endsWith(" R/B") ||
+    upper.includes("ROCKET BODY")
+  ) {
+    return "rocketBody";
+  }
+  return "active";
+}
+
 function toCatalogRecords(tles: Map<number, string[]>): CatalogRecord[] {
   const records: CatalogRecord[] = [];
   for (const [noradId, [name, line1, line2]] of tles) {
@@ -347,7 +368,7 @@ function toCatalogRecords(tles: Map<number, string[]>): CatalogRecord[] {
       id: `cat-${noradId}`,
       name,
       noradId,
-      objectType: "active",
+      objectType: detectCatalogObjectType(name),
       line1,
       line2,
     });
