@@ -111,6 +111,9 @@ type SatelliteStore = {
 
   liveMetrics: LiveMetrics;
   setLiveMetrics: (metrics: Partial<LiveMetrics>) => void;
+
+  resetSignal: number;
+  resetAll: () => void;
 };
 
 const MAP_TOGGLES_STORAGE_KEY = "orbit-atlas.map-toggles";
@@ -285,4 +288,26 @@ export const useSatelliteStore = create<SatelliteStore>((set, get) => ({
   liveMetrics: { simTimeMs: null, velocityKmS: null, altitudeKm: null },
   setLiveMetrics: (liveMetrics) =>
     set((state) => ({ liveMetrics: { ...state.liveMetrics, ...liveMetrics } })),
+
+  resetSignal: 0,
+  resetAll: () =>
+    set((state) => ({
+      selectedId: null,
+      cameraMode: "free",
+      running: true,
+      live: true,
+      multiplier: 60,
+      orbitMode: "selected",
+      query: "",
+      category: "All",
+      catalogMode: "explore",
+      showActive: true,
+      showRocketBodies: false,
+      showDebris: false,
+      showEarthImg: true,
+      showBorders: true,
+      showGrid: true,
+      showCities: false,
+      resetSignal: state.resetSignal + 1,
+    })),
 }));

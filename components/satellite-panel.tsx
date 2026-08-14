@@ -12,6 +12,7 @@ import {
   RadioTower,
   RefreshCw,
   Rocket,
+  RotateCcw,
   Search,
   X,
   type LucideIcon,
@@ -111,6 +112,7 @@ export default function SatellitePanel() {
   );
   const showDebris = useSatelliteStore((state) => state.showDebris);
   const setShowDebris = useSatelliteStore((state) => state.setShowDebris);
+  const resetAll = useSatelliteStore((state) => state.resetAll);
 
   const filtered = useMemo(
     () => filterSatellites(satellites, query, category),
@@ -364,13 +366,23 @@ export default function SatellitePanel() {
                   </p>
                 </div>
               </div>
-              <button
-                onClick={() => setOpen(false)}
-                aria-label="Close satellite browser"
-                className="flex size-7 items-center justify-center rounded-[2px] text-neutral-400 transition-colors hover:bg-white/15 hover:text-white"
-              >
-                <X className="size-4" />
-              </button>
+              <div className="flex items-center gap-1">
+                <button
+                  onClick={() => resetAll()}
+                  title="Reset all filters, view and selection"
+                  aria-label="Reset all filters and view"
+                  className="flex size-7 items-center justify-center rounded-[2px] text-neutral-400 transition-colors hover:bg-white/15 hover:text-white"
+                >
+                  <RotateCcw className="size-3.5" />
+                </button>
+                <button
+                  onClick={() => setOpen(false)}
+                  aria-label="Close satellite browser"
+                  className="flex size-7 items-center justify-center rounded-[2px] text-neutral-400 transition-colors hover:bg-white/15 hover:text-white"
+                >
+                  <X className="size-4" />
+                </button>
+              </div>
             </div>
 
             {/* Segmented Control */}

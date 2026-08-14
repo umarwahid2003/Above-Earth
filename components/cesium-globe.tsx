@@ -104,6 +104,7 @@ type GlobeApi = {
   applyFullCatalog: () => void;
   applyFullVisibility: () => void;
   applyCameraMode: () => void;
+  resetView: () => void;
 };
 
 export default function CesiumGlobe() {
@@ -131,6 +132,7 @@ export default function CesiumGlobe() {
   const showRocketBodies = useSatelliteStore((state) => state.showRocketBodies);
   const showDebris = useSatelliteStore((state) => state.showDebris);
   const cameraMode = useSatelliteStore((state) => state.cameraMode);
+  const resetSignal = useSatelliteStore((state) => state.resetSignal);
 
   const viewerRef = useRef<CesiumNS.Viewer | null>(null);
   const cesiumRef = useRef<typeof CesiumNS | null>(null);
@@ -230,6 +232,12 @@ export default function CesiumGlobe() {
       onSelectedChangeRef.current?.(selectedIdRef.current, true);
     }
   }, [cameraMode]);
+
+  useEffect(() => {
+    if (resetSignal > 0) {
+      apiRef.current?.resetView();
+    }
+  }, [resetSignal]);
 
   useEffect(() => {
     let viewer: CesiumNS.Viewer | null = null;
@@ -1463,6 +1471,24 @@ export default function CesiumGlobe() {
         for (const entityId of entities.keys()) updateVisual(entityId);
       };
 
+      const resetView = () => {
+        if (!cesiumViewer || cesiumViewer.isDestroyed()) return;
+        cesiumViewer.camera.cancelFlight();
+        cesiumViewer.selectedEntity = undefined;
+        cesiumViewer.trackedEntity = undefined;
+        const controller = cesiumViewer.scene.screenSpaceCameraController;
+        controller.enableRotate = true;
+        controller.enableTranslate = true;
+        controller.enableZoom = true;
+        controller.enableTilt = true;
+        controller.enableLook = true;
+        for (const entityId of entities.keys()) updateVisual(entityId);
+        cesiumViewer.camera.flyTo({
+          destination: Cesium.Cartesian3.fromDegrees(15, 15, 23_500_000),
+          duration: 1.5,
+        });
+      };
+
       removeTickListener = clock.onTick.addEventListener(handleTick);
 
       handleSelection(selectedIdRef.current, false);
@@ -1492,6 +1518,7 @@ export default function CesiumGlobe() {
         applyFullCatalog,
         applyFullVisibility,
         applyCameraMode,
+        resetView,
       };
 
       handleTick(clock);

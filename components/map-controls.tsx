@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Layers, X } from "lucide-react";
+import { Layers, RotateCcw, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useSatelliteStore } from "@/store/satellites";
 
@@ -54,6 +54,7 @@ export default function MapControl() {
   const setShowGrid = useSatelliteStore((state) => state.setShowGrid);
   const showCities = useSatelliteStore((state) => state.showCities);
   const setShowCities = useSatelliteStore((state) => state.setShowCities);
+  const resetAll = useSatelliteStore((state) => state.resetAll);
 
   return (
     <section className="pointer-events-none absolute right-4 top-4 z-10 flex flex-col items-end gap-2 sm:right-5 sm:top-5">
@@ -97,21 +98,35 @@ export default function MapControl() {
           </div>
         </div>
       )}
-      <button
-        onClick={() => setOpen(!open)}
-        aria-expanded={open}
-        aria-label={
-          open ? "Hide Earth & Map controls" : "Show Earth & Map controls"
-        }
-        className={cn(
-          "pointer-events-auto flex size-10 items-center justify-center rounded-[3px] border shadow-2xl backdrop-blur-xl transition-all",
-          open
-            ? "border-white/40 bg-white/20 text-white"
-            : "border-white/20 bg-[#08080a]/90 text-neutral-300 hover:border-white/40 hover:text-white"
-        )}
-      >
-        <Layers className="size-4.5" />
-      </button>
+
+      {/* Top Controls Action Bar */}
+      <div className="flex items-center gap-1.5">
+        <button
+          onClick={() => resetAll()}
+          title="Reset to initial global overview, clear selections and filters"
+          aria-label="Reset application state to initial overview"
+          className="pointer-events-auto flex h-10 items-center gap-1.5 rounded-[3px] border border-white/20 bg-[#08080a]/90 px-3 text-xs font-bold uppercase tracking-wider text-neutral-300 shadow-2xl backdrop-blur-xl transition-all hover:border-white/40 hover:bg-white/10 hover:text-white active:scale-95"
+        >
+          <RotateCcw className="size-3.5" />
+          <span className="hidden sm:inline">Reset</span>
+        </button>
+
+        <button
+          onClick={() => setOpen(!open)}
+          aria-expanded={open}
+          aria-label={
+            open ? "Hide Earth & Map controls" : "Show Earth & Map controls"
+          }
+          className={cn(
+            "pointer-events-auto flex size-10 items-center justify-center rounded-[3px] border shadow-2xl backdrop-blur-xl transition-all",
+            open
+              ? "border-white/40 bg-white/20 text-white"
+              : "border-white/20 bg-[#08080a]/90 text-neutral-300 hover:border-white/40 hover:text-white"
+          )}
+        >
+          <Layers className="size-4.5" />
+        </button>
+      </div>
     </section>
   );
 }
