@@ -1284,48 +1284,52 @@ export default function CesiumGlobe() {
           selectedEcfVel &&
           !cesiumViewer.isDestroyed()
         ) {
-          const rx = selectedEcfVec.x;
-          const ry = selectedEcfVec.y;
-          const rz = selectedEcfVec.z;
+          const rx = selectedEcfVec.x * 1000;
+          const ry = selectedEcfVec.y * 1000;
+          const rz = selectedEcfVec.z * 1000;
           const rMag = Math.hypot(rx, ry, rz);
 
-          const vx = selectedEcfVel.x;
-          const vy = selectedEcfVel.y;
-          const vz = selectedEcfVel.z;
+          const vx = selectedEcfVel.x * 1000;
+          const vy = selectedEcfVel.y * 1000;
+          const vz = selectedEcfVel.z * 1000;
           const vMag = Math.hypot(vx, vy, vz);
 
           if (rMag > 0 && vMag > 0) {
-            // Up vector (Zenith)
+            // Zenith up vector (pointing away from Earth center)
             const ux = rx / rMag;
             const uy = ry / rMag;
             const uz = rz / rMag;
 
-            // Velocity direction (Forward)
+            // Velocity forward vector (direction of orbital flight)
             const fx = vx / vMag;
             const fy = vy / vMag;
             const fz = vz / vMag;
 
-            // Forward/down look direction angled toward Earth's horizon/surface ahead
-            const ldx = 0.88 * fx - 0.48 * ux;
-            const ldy = 0.88 * fy - 0.48 * uy;
-            const ldz = 0.88 * fz - 0.48 * uz;
-            const ldMag = Math.hypot(ldx, ldy, ldz);
+            // Angle 32 degrees downward toward Earth's horizon/nadir
+            const pitchAngle = Cesium.Math.toRadians(32);
+            const cosP = Math.cos(pitchAngle);
+            const sinP = Math.sin(pitchAngle);
 
-            // Up vector for camera
-            const cux = ux + 0.3 * fx;
-            const cuy = uy + 0.3 * fy;
-            const cuz = uz + 0.3 * fz;
-            const cuMag = Math.hypot(cux, cuy, cuz);
+            // Exact orthogonal look and up unit vectors: (D . U = 0)
+            const ldx = cosP * fx - sinP * ux;
+            const ldy = cosP * fy - sinP * uy;
+            const ldz = cosP * fz - sinP * uz;
 
-            const camX = (rx + ux * 0.05) * 1000;
-            const camY = (ry + uy * 0.05) * 1000;
-            const camZ = (rz + uz * 0.05) * 1000;
+            const cux = sinP * fx + cosP * ux;
+            const cuy = sinP * fy + cosP * uy;
+            const cuz = sinP * fz + cosP * uz;
 
+            // Camera eye position: 150m above and 350m behind the satellite along flight path
+            const camX = rx + ux * 150 - fx * 350;
+            const camY = ry + uy * 150 - fy * 350;
+            const camZ = rz + uz * 150 - fz * 350;
+
+            cesiumViewer.camera.cancelFlight();
             cesiumViewer.camera.setView({
               destination: new Cesium.Cartesian3(camX, camY, camZ),
               orientation: {
-                direction: new Cesium.Cartesian3(ldx / ldMag, ldy / ldMag, ldz / ldMag),
-                up: new Cesium.Cartesian3(cux / cuMag, cuy / cuMag, cuz / cuMag),
+                direction: new Cesium.Cartesian3(ldx, ldy, ldz),
+                up: new Cesium.Cartesian3(cux, cuy, cuz),
               },
             });
           }

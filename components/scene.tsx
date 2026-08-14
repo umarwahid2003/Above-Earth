@@ -11,6 +11,7 @@ import MapControl from "@/components/map-controls";
 import DataStatus from "@/components/data-status";
 import OrbitPathControl from "@/components/orbit-path-control";
 import TransportControls from "@/components/transport-controls";
+import CockpitHud from "@/components/cockpit-hud";
 
 const CesiumGlobe = dynamic(() => import("@/components/cesium-globe"), {
   ssr: false,
@@ -73,6 +74,7 @@ export default function Scene() {
       <SatellitePanel />
       <MapControl />
       <DetailPanel />
+      <CockpitHud />
 
       <div className="pointer-events-none absolute inset-x-0 bottom-4 z-10 flex flex-col items-center gap-2">
         <DataStatus />
