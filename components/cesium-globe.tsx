@@ -103,6 +103,7 @@ type GlobeApi = {
   applyCatalogMode: () => void;
   applyFullCatalog: () => void;
   applyFullVisibility: () => void;
+  applyCameraMode: () => void;
 };
 
 export default function CesiumGlobe() {
@@ -224,6 +225,7 @@ export default function CesiumGlobe() {
   useEffect(() => {
     const prev = cameraModeRef.current;
     cameraModeRef.current = cameraMode;
+    apiRef.current?.applyCameraMode();
     if (prev === "pov" && cameraMode === "free") {
       onSelectedChangeRef.current?.(selectedIdRef.current, true);
     }
@@ -1125,9 +1127,6 @@ export default function CesiumGlobe() {
       );
 
       let lastFlushMs = 0;
-      let smoothCamPos: CesiumNS.Cartesian3 | null = null;
-      let smoothLookDir: CesiumNS.Cartesian3 | null = null;
-      let smoothUpDir: CesiumNS.Cartesian3 | null = null;
 
       const handleTick = (tickClock: CesiumNS.Clock) => {
         const date = Cesium.JulianDate.toDate(tickClock.currentTime);
@@ -1135,16 +1134,12 @@ export default function CesiumGlobe() {
         let selectedVel: number | null = null;
         let selectedAlt: number | null = null;
         let selectedPos: CesiumNS.Cartesian3 | undefined;
-        let selectedEcfVec: { x: number; y: number; z: number } | null = null;
-        let selectedEcfVel: { x: number; y: number; z: number } | null = null;
 
         for (const sat of propagated) {
           try {
             const pv = propagate(sat.satrec, date);
             if (!pv || !pv.position) continue;
             const gmst = gstime(date);
-            const cosG = Math.cos(gmst);
-            const sinG = Math.sin(gmst);
             const ecf = eciToEcf(pv.position, gmst);
             const { x, y, z } = ecf;
             if (
@@ -1161,15 +1156,9 @@ export default function CesiumGlobe() {
                 selectedVel = Math.sqrt(
                   pv.velocity.x ** 2 + pv.velocity.y ** 2 + pv.velocity.z ** 2
                 );
-                selectedEcfVel = {
-                  x: pv.velocity.x * cosG + pv.velocity.y * sinG,
-                  y: -pv.velocity.x * sinG + pv.velocity.y * cosG,
-                  z: pv.velocity.z,
-                };
               }
               selectedAlt = Math.hypot(x, y, z) - EARTH_RADIUS_KM;
               selectedPos = pos;
-              selectedEcfVec = { x, y, z };
               metricsRef.alt = selectedAlt;
               metricsRef.vel = selectedVel;
             }
@@ -1246,15 +1235,9 @@ export default function CesiumGlobe() {
                         pv.velocity.y ** 2 +
                         pv.velocity.z ** 2
                     );
-                    selectedEcfVel = {
-                      x: pv.velocity.x * cosG + pv.velocity.y * sinG,
-                      y: -pv.velocity.x * sinG + pv.velocity.y * cosG,
-                      z: pv.velocity.z,
-                    };
                   }
                   selectedAlt = Math.hypot(ecfX, ecfY, z) - EARTH_RADIUS_KM;
                   selectedPos = pos;
-                  selectedEcfVec = { x: ecfX, y: ecfY, z };
                   metricsRef.alt = selectedAlt;
                   metricsRef.vel = selectedVel;
                 }
@@ -1286,89 +1269,135 @@ export default function CesiumGlobe() {
         summaryEntity.show = !isPov && (selectedIdRef.current != null || selectedFullId != null);
 
         // Satellite First-Person Cockpit POV Camera Tracking
-        if (
-          isPov &&
-          selectedPos &&
-          selectedEcfVec &&
-          selectedEcfVel &&
-          !cesiumViewer.isDestroyed()
-        ) {
-          const rx = selectedEcfVec.x * 1000;
-          const ry = selectedEcfVec.y * 1000;
-          const rz = selectedEcfVec.z * 1000;
-          const rMag = Math.hypot(rx, ry, rz);
-
-          const vx = selectedEcfVel.x * 1000;
-          const vy = selectedEcfVel.y * 1000;
-          const vz = selectedEcfVel.z * 1000;
-          const vMag = Math.hypot(vx, vy, vz);
-
-          if (rMag > 0 && vMag > 0) {
-            // Zenith up vector (pointing away from Earth center)
-            const ux = rx / rMag;
-            const uy = ry / rMag;
-            const uz = rz / rMag;
-
-            // Velocity forward vector (direction of orbital flight)
-            const fx = vx / vMag;
-            const fy = vy / vMag;
-            const fz = vz / vMag;
-
-            // Angle 35 degrees downward toward Earth's horizon/nadir
-            const pitchAngle = Cesium.Math.toRadians(35);
-            const cosP = Math.cos(pitchAngle);
-            const sinP = Math.sin(pitchAngle);
-
-            // Exact orthogonal look and up unit vectors: (D . U = 0)
-            const ldx = cosP * fx - sinP * ux;
-            const ldy = cosP * fy - sinP * uy;
-            const ldz = cosP * fz - sinP * uz;
-
-            const cux = sinP * fx + cosP * ux;
-            const cuy = sinP * fy + cosP * uy;
-            const cuz = sinP * fz + cosP * uz;
-
-            // Camera eye position: 100m above and 200m behind the satellite along flight path
-            const camX = rx + ux * 100 - fx * 200;
-            const camY = ry + uy * 100 - fy * 200;
-            const camZ = rz + uz * 100 - fz * 200;
-
-            const targetPos = new Cesium.Cartesian3(camX, camY, camZ);
-            const targetDir = new Cesium.Cartesian3(ldx, ldy, ldz);
-            const targetUp = new Cesium.Cartesian3(cux, cuy, cuz);
-
-            let nextCamPos = targetPos;
-            let nextLookDir = targetDir;
-            let nextUpDir = targetUp;
-
-            if (!smoothCamPos || !smoothLookDir || !smoothUpDir) {
-              smoothCamPos = Cesium.Cartesian3.clone(targetPos);
-              smoothLookDir = Cesium.Cartesian3.clone(targetDir);
-              smoothUpDir = Cesium.Cartesian3.clone(targetUp);
-            } else {
-              Cesium.Cartesian3.lerp(smoothCamPos, targetPos, 0.5, smoothCamPos);
-              Cesium.Cartesian3.lerp(smoothLookDir, targetDir, 0.35, smoothLookDir);
-              Cesium.Cartesian3.normalize(smoothLookDir, smoothLookDir);
-              Cesium.Cartesian3.lerp(smoothUpDir, targetUp, 0.35, smoothUpDir);
-              Cesium.Cartesian3.normalize(smoothUpDir, smoothUpDir);
-              nextCamPos = smoothCamPos;
-              nextLookDir = smoothLookDir;
-              nextUpDir = smoothUpDir;
-            }
-
-            cesiumViewer.camera.cancelFlight();
-            cesiumViewer.camera.setView({
-              destination: nextCamPos,
-              orientation: {
-                direction: nextLookDir,
-                up: nextUpDir,
-              },
-            });
+        if (isPov && !cesiumViewer.isDestroyed()) {
+          let selSatrec: PropagatedSat["satrec"] | null = null;
+          if (selectedIdRef.current && satrecMap.has(selectedIdRef.current)) {
+            selSatrec = satrecMap.get(selectedIdRef.current)!.satrec;
+          } else if (selectedFullId && fullRecords.has(selectedFullId)) {
+            selSatrec = fullRecords.get(selectedFullId)!.satrec;
           }
-        } else {
-          smoothCamPos = null;
-          smoothLookDir = null;
-          smoothUpDir = null;
+
+          if (selSatrec) {
+            try {
+              const date0 = date;
+              const date1 = new Date(date.getTime() + 1000);
+              const pv0 = propagate(selSatrec, date0);
+              const pv1 = propagate(selSatrec, date1);
+              if (pv0 && pv0.position && pv1 && pv1.position) {
+                const gmst0 = gstime(date0);
+                const gmst1 = gstime(date1);
+                const ecf0 = eciToEcf(pv0.position, gmst0);
+                const ecf1 = eciToEcf(pv1.position, gmst1);
+
+                const pos0 = new Cesium.Cartesian3(
+                  ecf0.x * 1000,
+                  ecf0.y * 1000,
+                  ecf0.z * 1000
+                );
+                const pos1 = new Cesium.Cartesian3(
+                  ecf1.x * 1000,
+                  ecf1.y * 1000,
+                  ecf1.z * 1000
+                );
+
+                // Zenith normal vector (up from Earth center)
+                const upZenith = Cesium.Cartesian3.normalize(
+                  pos0,
+                  new Cesium.Cartesian3()
+                );
+
+                // Forward flight velocity vector across Earth surface
+                const fwdRaw = Cesium.Cartesian3.subtract(
+                  pos1,
+                  pos0,
+                  new Cesium.Cartesian3()
+                );
+                const forward = Cesium.Cartesian3.normalize(
+                  fwdRaw,
+                  new Cesium.Cartesian3()
+                );
+
+                // Tangent horizontal flight vector along orbital path
+                const dot = Cesium.Cartesian3.dot(forward, upZenith);
+                const horiz = Cesium.Cartesian3.subtract(
+                  forward,
+                  Cesium.Cartesian3.multiplyByScalar(
+                    upZenith,
+                    dot,
+                    new Cesium.Cartesian3()
+                  ),
+                  new Cesium.Cartesian3()
+                );
+                Cesium.Cartesian3.normalize(horiz, horiz);
+
+                // Pitch angle: 30 degrees downward toward Earth's surface
+                const pitch = Cesium.Math.toRadians(30);
+                const cosP = Math.cos(pitch);
+                const sinP = Math.sin(pitch);
+
+                const lookDir = Cesium.Cartesian3.subtract(
+                  Cesium.Cartesian3.multiplyByScalar(
+                    horiz,
+                    cosP,
+                    new Cesium.Cartesian3()
+                  ),
+                  Cesium.Cartesian3.multiplyByScalar(
+                    upZenith,
+                    sinP,
+                    new Cesium.Cartesian3()
+                  ),
+                  new Cesium.Cartesian3()
+                );
+                Cesium.Cartesian3.normalize(lookDir, lookDir);
+
+                const upDir = Cesium.Cartesian3.add(
+                  Cesium.Cartesian3.multiplyByScalar(
+                    horiz,
+                    sinP,
+                    new Cesium.Cartesian3()
+                  ),
+                  Cesium.Cartesian3.multiplyByScalar(
+                    upZenith,
+                    cosP,
+                    new Cesium.Cartesian3()
+                  ),
+                  new Cesium.Cartesian3()
+                );
+                Cesium.Cartesian3.normalize(upDir, upDir);
+
+                // Eye position: 60m above, 150m behind the satellite along orbital direction
+                const eyePos = Cesium.Cartesian3.add(
+                  pos0,
+                  Cesium.Cartesian3.multiplyByScalar(
+                    upZenith,
+                    60,
+                    new Cesium.Cartesian3()
+                  ),
+                  new Cesium.Cartesian3()
+                );
+                Cesium.Cartesian3.subtract(
+                  eyePos,
+                  Cesium.Cartesian3.multiplyByScalar(
+                    horiz,
+                    150,
+                    new Cesium.Cartesian3()
+                  ),
+                  eyePos
+                );
+
+                cesiumViewer.camera.cancelFlight();
+                cesiumViewer.camera.setView({
+                  destination: eyePos,
+                  orientation: {
+                    direction: lookDir,
+                    up: upDir,
+                  },
+                });
+              }
+            } catch {
+              // Ignore calculation errors
+            }
+          }
         }
 
         if (!selectedFullId && orbitModeRef.current === "selected") {
@@ -1418,6 +1447,22 @@ export default function CesiumGlobe() {
         }
       };
 
+      const applyCameraMode = () => {
+        const isPov = cameraModeRef.current === "pov";
+        if (cesiumViewer && !cesiumViewer.isDestroyed()) {
+          cesiumViewer.camera.cancelFlight();
+          cesiumViewer.selectedEntity = undefined;
+          cesiumViewer.trackedEntity = undefined;
+          const controller = cesiumViewer.scene.screenSpaceCameraController;
+          controller.enableRotate = !isPov;
+          controller.enableTranslate = !isPov;
+          controller.enableZoom = !isPov;
+          controller.enableTilt = !isPov;
+          controller.enableLook = !isPov;
+        }
+        for (const entityId of entities.keys()) updateVisual(entityId);
+      };
+
       removeTickListener = clock.onTick.addEventListener(handleTick);
 
       handleSelection(selectedIdRef.current, false);
@@ -1446,6 +1491,7 @@ export default function CesiumGlobe() {
         applyCatalogMode,
         applyFullCatalog,
         applyFullVisibility,
+        applyCameraMode,
       };
 
       handleTick(clock);
