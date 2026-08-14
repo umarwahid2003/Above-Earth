@@ -34,6 +34,7 @@ export default function Scene() {
   const ready = useSatelliteStore((state) => state.ready);
   const validCount = useSatelliteStore((state) => state.validCount);
   const catalogMode = useSatelliteStore((state) => state.catalogMode);
+  const cameraMode = useSatelliteStore((state) => state.cameraMode);
   const showEmpty = catalogMode === "explore" && ready && validCount === 0;
 
   useEffect(() => {
@@ -43,9 +44,8 @@ export default function Scene() {
       .then((data: OrbitalDataPayload) => {
         if (cancelled) return;
         if (data && Array.isArray(data.satellites) && data.satellites.length > 0) {
-          useSatelliteStore
-            .getState()
-            .setSatellites(data.satellites as SatelliteRecord[]);
+          const sats = data.satellites as SatelliteRecord[];
+          useSatelliteStore.getState().setSatellites(sats);
           useSatelliteStore.getState().setDataMeta({
             source:
               data.source === "celestrak" || data.source === "cache" || data.source === "catalog"
@@ -55,6 +55,23 @@ export default function Scene() {
             isStale: data.isStale !== false,
             updatedCount: data.updatedCount ?? 0,
           });
+
+          // Check URL query parameters for deep linked satellite (?norad=25544 or ?id=iss)
+          if (typeof window !== "undefined") {
+            const params = new URLSearchParams(window.location.search);
+            const norad = params.get("norad");
+            const id = params.get("id");
+            if (norad || id) {
+              const match = sats.find(
+                (s) =>
+                  (norad && String(s.noradId) === norad) ||
+                  (id && s.id.toLowerCase() === id.toLowerCase())
+              );
+              if (match) {
+                useSatelliteStore.getState().setSelectedId(match.id);
+              }
+            }
+          }
         }
       })
       .catch(() => {
@@ -65,22 +82,26 @@ export default function Scene() {
     };
   }, []);
 
+  const isPov = cameraMode === "pov";
+
   return (
     <main className="relative h-screen w-screen overflow-hidden bg-[#050505] text-neutral-100">
       <div className="absolute inset-0 z-0">
         <CesiumGlobe />
       </div>
 
-      <SatellitePanel />
-      <MapControl />
-      <DetailPanel />
+      {!isPov && <SatellitePanel />}
+      {!isPov && <MapControl />}
+      {!isPov && <DetailPanel />}
       <CockpitHud />
 
-      <div className="pointer-events-none absolute inset-x-0 bottom-4 z-10 flex flex-col items-center gap-2">
-        <DataStatus />
-        <OrbitPathControl />
-        <TransportControls />
-      </div>
+      {!isPov && (
+        <div className="pointer-events-none absolute inset-x-0 bottom-4 z-10 flex flex-col items-center gap-2">
+          <DataStatus />
+          <OrbitPathControl />
+          <TransportControls />
+        </div>
+      )}
 
       {showEmpty && (
         <div className="absolute inset-0 z-30 flex items-center justify-center bg-[#050505]/85 p-4">

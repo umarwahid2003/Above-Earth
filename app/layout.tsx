@@ -17,9 +17,35 @@ const jetbrainsMono = JetBrains_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Above Earth",
+  title: "Above Earth — Real-Time 3D Orbital Satellite Tracker",
   description:
-    "An interactive real-time Earth globe tracking satellites in orbit.",
+    "Explore 15,000+ active satellites, space stations, and orbital debris in real time on a photorealistic 3D Earth globe with SGP4 propagation and Cockpit POV.",
+  keywords: [
+    "satellite tracker",
+    "ISS tracker",
+    "Starlink",
+    "space orbit",
+    "Cesium 3D",
+    "orbital mechanics",
+    "SGP4",
+    "real-time space",
+  ],
+  authors: [{ name: "Umar Wahid" }],
+  openGraph: {
+    title: "Above Earth — Real-Time 3D Orbital Satellite Tracker",
+    description:
+      "Explore 15,000+ satellites, space stations, and rocket bodies in real time on an interactive 3D globe with Cockpit POV.",
+    url: "https://above-earth.vercel.app",
+    siteName: "Above Earth",
+    locale: "en_US",
+    type: "website",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "Above Earth — Real-Time 3D Orbital Satellite Tracker",
+    description:
+      "Explore 15,000+ satellites and orbital debris in real-time 3D with first-person Cockpit POV.",
+  },
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {

@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo } from "react";
+import { useEffect, useMemo } from "react";
 import { Orbit, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useSatelliteStore } from "@/store/satellites";
@@ -42,6 +42,17 @@ export default function CockpitHud() {
       return null;
     }
   }, [record]);
+
+  useEffect(() => {
+    if (cameraMode !== "pov") return;
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        setCameraMode("free");
+      }
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [cameraMode, setCameraMode]);
 
   if (cameraMode !== "pov" || !record) return null;
 

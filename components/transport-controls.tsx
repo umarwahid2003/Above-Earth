@@ -50,6 +50,7 @@ export default function TransportControls() {
   const enterSim = (speed: SimSpeed) => {
     setLive(false);
     setMultiplier(speed);
+    setRunning(true);
     setPopoverOpen(false);
   };
 

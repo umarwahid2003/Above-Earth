@@ -1,7 +1,7 @@
 "use client";
 
-import { useMemo } from "react";
-import { Orbit, Satellite, Video, X } from "lucide-react";
+import { useMemo, useState } from "react";
+import { Check, Copy, Orbit, Satellite, Share2, Video, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useSatelliteStore } from "@/store/satellites";
 import type { CatalogRecord, SatelliteRecord } from "@/lib/types";
@@ -50,12 +50,15 @@ export default function DetailPanel() {
   const cameraMode = useSatelliteStore((state) => state.cameraMode);
   const setCameraMode = useSatelliteStore((state) => state.setCameraMode);
 
+  const [copied, setCopied] = useState(false);
+
   const record: SatelliteRecord | CatalogRecord | null = useMemo(() => {
     if (catalogMode === "full") {
       return fullCatalog.find((item) => item.id === selectedId) ?? null;
     }
     return satellites.find((item) => item.id === selectedId) ?? null;
   }, [satellites, fullCatalog, selectedId, catalogMode]);
+
   const snapshot = useMemo(() => {
     if (!record) return null;
     try {
@@ -65,7 +68,7 @@ export default function DetailPanel() {
     }
   }, [record]);
 
-  if (!selectedId || !record) return null;
+  if (!selectedId || !record || cameraMode === "pov") return null;
 
   const typeLabel = "objectType" in record ? record.objectType : record.category;
 
@@ -77,9 +80,27 @@ export default function DetailPanel() {
   const altitudeLabel =
     altitude != null ? formatAltitude(altitude) : "Unavailable";
 
+  const handleCopyLink = () => {
+    const url = typeof window !== "undefined"
+      ? `${window.location.origin}/?norad=${record.noradId}`
+      : `https://above-earth.vercel.app/?norad=${record.noradId}`;
+    navigator.clipboard.writeText(url);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+
+  const handleShareX = () => {
+    const url = typeof window !== "undefined"
+      ? `${window.location.origin}/?norad=${record.noradId}`
+      : `https://above-earth.vercel.app/?norad=${record.noradId}`;
+    const text = `🛰️ Tracking ${record.name} (NORAD ${record.noradId}) in real-time at ${velocityLabel} and ${altitudeLabel} on Above Earth!`;
+    const shareUrl = `https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}&url=${encodeURIComponent(url)}`;
+    window.open(shareUrl, "_blank", "noopener,noreferrer");
+  };
+
   return (
-    <aside className="pointer-events-none fixed inset-x-0 bottom-0 z-20 md:inset-x-auto md:right-6 md:top-1/2 md:bottom-auto md:-translate-y-1/2 md:w-[20.5rem]">
-      <div className="pointer-events-auto mx-3 mb-3 max-h-[70dvh] overflow-y-auto rounded-[4px] border border-white/20 bg-[#08080a]/90 p-3.5 shadow-2xl shadow-black/80 backdrop-blur-xl nice-scroll md:mx-0 md:mb-0 md:max-h-[calc(100dvh-8rem)]">
+    <aside className="pointer-events-none fixed inset-x-0 bottom-24 z-20 md:bottom-auto md:inset-x-auto md:right-6 md:top-1/2 md:-translate-y-1/2 md:w-[20.5rem]">
+      <div className="pointer-events-auto mx-3 max-h-[65dvh] overflow-y-auto rounded-[4px] border border-white/20 bg-[#08080a]/90 p-3.5 shadow-2xl shadow-black/80 backdrop-blur-xl nice-scroll md:mx-0 md:max-h-[calc(100dvh-8rem)]">
         <div className="flex items-start justify-between gap-3">
           <div className="flex min-w-0 items-start gap-2.5">
             <div className="mt-0.5 flex size-8 shrink-0 items-center justify-center rounded-[2px] bg-white/10 ring-1 ring-white/20">
@@ -107,26 +128,14 @@ export default function DetailPanel() {
         <div className="mt-3 grid grid-cols-2 gap-1 rounded-[2px] border border-white/15 bg-white/[0.03] p-1">
           <button
             onClick={() => setCameraMode("free")}
-            aria-pressed={cameraMode === "free"}
-            className={cn(
-              "flex items-center justify-center gap-1.5 rounded-[2px] py-1.5 text-[10px] font-bold uppercase tracking-wider transition-colors",
-              cameraMode === "free"
-                ? "bg-white text-black shadow-xs"
-                : "text-neutral-400 hover:bg-white/[0.08] hover:text-white"
-            )}
+            className="flex items-center justify-center gap-1.5 rounded-[2px] bg-white py-1.5 text-[10px] font-bold uppercase tracking-wider text-black shadow-xs transition-colors"
           >
             <Orbit className="size-3" />
             Orbit Cam
           </button>
           <button
             onClick={() => setCameraMode("pov")}
-            aria-pressed={cameraMode === "pov"}
-            className={cn(
-              "flex items-center justify-center gap-1.5 rounded-[2px] py-1.5 text-[10px] font-bold uppercase tracking-wider transition-colors",
-              cameraMode === "pov"
-                ? "bg-white text-black shadow-xs"
-                : "text-neutral-400 hover:bg-white/[0.08] hover:text-white"
-            )}
+            className="flex items-center justify-center gap-1.5 rounded-[2px] py-1.5 text-[10px] font-bold uppercase tracking-wider text-neutral-400 transition-colors hover:bg-white/[0.08] hover:text-white"
           >
             <Video className="size-3" />
             Cockpit POV
@@ -196,6 +205,33 @@ export default function DetailPanel() {
             }
             wide
           />
+        </div>
+
+        {/* Share & Deep Link Actions */}
+        <div className="mt-3 grid grid-cols-2 gap-1.5 border-t border-white/10 pt-2.5">
+          <button
+            onClick={handleCopyLink}
+            className="flex items-center justify-center gap-1.5 rounded-[2px] border border-white/15 bg-white/[0.04] py-1.5 text-[10px] font-bold uppercase tracking-wider text-neutral-300 transition-colors hover:border-white/30 hover:bg-white/10 hover:text-white"
+          >
+            {copied ? (
+              <>
+                <Check className="size-3 text-green-400" />
+                <span className="text-green-400">Copied!</span>
+              </>
+            ) : (
+              <>
+                <Copy className="size-3" />
+                <span>Copy Link</span>
+              </>
+            )}
+          </button>
+          <button
+            onClick={handleShareX}
+            className="flex items-center justify-center gap-1.5 rounded-[2px] border border-white/15 bg-white/[0.04] py-1.5 text-[10px] font-bold uppercase tracking-wider text-neutral-300 transition-colors hover:border-white/30 hover:bg-white/10 hover:text-white"
+          >
+            <Share2 className="size-3" />
+            <span>Share to 𝕏</span>
+          </button>
         </div>
       </div>
     </aside>
