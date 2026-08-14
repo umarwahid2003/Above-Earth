@@ -621,6 +621,12 @@ export default function CesiumGlobe() {
         const label = entity?.label;
         if (!entity || !billboard || !label) return;
         const isSelected = id === selectedIdRef.current;
+        const isPov = cameraModeRef.current === "pov";
+        if (isSelected && isPov) {
+          entity.show = false;
+          return;
+        }
+        entity.show = !fullModeActive;
         const isHovered = id === hoveredIdRef;
         const emphasized = isSelected || isHovered;
         const category = categoryById.get(id) ?? "Science";
@@ -635,7 +641,7 @@ export default function CesiumGlobe() {
         billboard.image = new Cesium.ConstantProperty(
           emphasized ? satelliteSpriteBright(category) : satelliteSprite(category)
         );
-        label.show = new Cesium.ConstantProperty(isSelected || isHovered);
+        label.show = new Cesium.ConstantProperty((isSelected && !isPov) || isHovered);
       };
 
       const resetHovered = (next: string | null) => {
@@ -1119,6 +1125,9 @@ export default function CesiumGlobe() {
       );
 
       let lastFlushMs = 0;
+      let smoothCamPos: CesiumNS.Cartesian3 | null = null;
+      let smoothLookDir: CesiumNS.Cartesian3 | null = null;
+      let smoothUpDir: CesiumNS.Cartesian3 | null = null;
 
       const handleTick = (tickClock: CesiumNS.Clock) => {
         const date = Cesium.JulianDate.toDate(tickClock.currentTime);
@@ -1305,8 +1314,8 @@ export default function CesiumGlobe() {
             const fy = vy / vMag;
             const fz = vz / vMag;
 
-            // Angle 32 degrees downward toward Earth's horizon/nadir
-            const pitchAngle = Cesium.Math.toRadians(32);
+            // Angle 35 degrees downward toward Earth's horizon/nadir
+            const pitchAngle = Cesium.Math.toRadians(35);
             const cosP = Math.cos(pitchAngle);
             const sinP = Math.sin(pitchAngle);
 
@@ -1319,20 +1328,47 @@ export default function CesiumGlobe() {
             const cuy = sinP * fy + cosP * uy;
             const cuz = sinP * fz + cosP * uz;
 
-            // Camera eye position: 150m above and 350m behind the satellite along flight path
-            const camX = rx + ux * 150 - fx * 350;
-            const camY = ry + uy * 150 - fy * 350;
-            const camZ = rz + uz * 150 - fz * 350;
+            // Camera eye position: 100m above and 200m behind the satellite along flight path
+            const camX = rx + ux * 100 - fx * 200;
+            const camY = ry + uy * 100 - fy * 200;
+            const camZ = rz + uz * 100 - fz * 200;
+
+            const targetPos = new Cesium.Cartesian3(camX, camY, camZ);
+            const targetDir = new Cesium.Cartesian3(ldx, ldy, ldz);
+            const targetUp = new Cesium.Cartesian3(cux, cuy, cuz);
+
+            let nextCamPos = targetPos;
+            let nextLookDir = targetDir;
+            let nextUpDir = targetUp;
+
+            if (!smoothCamPos || !smoothLookDir || !smoothUpDir) {
+              smoothCamPos = Cesium.Cartesian3.clone(targetPos);
+              smoothLookDir = Cesium.Cartesian3.clone(targetDir);
+              smoothUpDir = Cesium.Cartesian3.clone(targetUp);
+            } else {
+              Cesium.Cartesian3.lerp(smoothCamPos, targetPos, 0.5, smoothCamPos);
+              Cesium.Cartesian3.lerp(smoothLookDir, targetDir, 0.35, smoothLookDir);
+              Cesium.Cartesian3.normalize(smoothLookDir, smoothLookDir);
+              Cesium.Cartesian3.lerp(smoothUpDir, targetUp, 0.35, smoothUpDir);
+              Cesium.Cartesian3.normalize(smoothUpDir, smoothUpDir);
+              nextCamPos = smoothCamPos;
+              nextLookDir = smoothLookDir;
+              nextUpDir = smoothUpDir;
+            }
 
             cesiumViewer.camera.cancelFlight();
             cesiumViewer.camera.setView({
-              destination: new Cesium.Cartesian3(camX, camY, camZ),
+              destination: nextCamPos,
               orientation: {
-                direction: new Cesium.Cartesian3(ldx, ldy, ldz),
-                up: new Cesium.Cartesian3(cux, cuy, cuz),
+                direction: nextLookDir,
+                up: nextUpDir,
               },
             });
           }
+        } else {
+          smoothCamPos = null;
+          smoothLookDir = null;
+          smoothUpDir = null;
         }
 
         if (!selectedFullId && orbitModeRef.current === "selected") {
