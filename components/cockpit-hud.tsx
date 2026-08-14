@@ -142,11 +142,12 @@ export default function CockpitHud() {
         {/* Right Speed Booster Controls (to watch Earth rush past rapidly!) */}
         <div className="pointer-events-auto flex items-center gap-1.5 rounded-[3px] border border-white/25 bg-[#08080a]/90 p-1.5 shadow-2xl backdrop-blur-xl">
           <span className="px-1.5 font-mono text-[9px] font-bold uppercase tracking-wider text-neutral-400">
-            SIM SPEED:
+            SPEED:
           </span>
           <button
             onClick={() => {
               setLive(true);
+              useSatelliteStore.getState().setRunning(true);
             }}
             className={cn(
               "rounded-[2px] px-2 py-1 text-[10px] font-bold uppercase tracking-wider transition-colors",
@@ -155,12 +156,13 @@ export default function CockpitHud() {
                 : "text-neutral-400 hover:bg-white/10 hover:text-white"
             )}
           >
-            1x Realtime
+            1x Live
           </button>
           <button
             onClick={() => {
               setLive(false);
               setMultiplier(10);
+              useSatelliteStore.getState().setRunning(true);
             }}
             className={cn(
               "rounded-[2px] px-2 py-1 text-[10px] font-bold uppercase tracking-wider transition-colors",
@@ -175,6 +177,7 @@ export default function CockpitHud() {
             onClick={() => {
               setLive(false);
               setMultiplier(60);
+              useSatelliteStore.getState().setRunning(true);
             }}
             className={cn(
               "rounded-[2px] px-2 py-1 text-[10px] font-bold uppercase tracking-wider transition-colors",
@@ -183,7 +186,22 @@ export default function CockpitHud() {
                 : "text-neutral-400 hover:bg-white/10 hover:text-white"
             )}
           >
-            60x Hyper
+            60x
+          </button>
+          <button
+            onClick={() => {
+              setLive(false);
+              setMultiplier(300);
+              useSatelliteStore.getState().setRunning(true);
+            }}
+            className={cn(
+              "rounded-[2px] px-2 py-1 text-[10px] font-bold uppercase tracking-wider transition-colors",
+              !isLive && multiplier === 300
+                ? "bg-cyan-400 text-black shadow-xs"
+                : "text-neutral-400 hover:bg-white/10 hover:text-white"
+            )}
+          >
+            300x Warp
           </button>
         </div>
       </div>

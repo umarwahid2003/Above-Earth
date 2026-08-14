@@ -3,7 +3,7 @@ import { TLES, ISS_NORAD_ID } from "@/data/tles";
 import type { CategoryFilter, OrbitPathMode } from "@/lib/filter";
 import type { CatalogMode, CatalogRecord, SatelliteRecord } from "@/lib/types";
 
-export const SIM_SPEEDS = [10, 60] as const;
+export const SIM_SPEEDS = [10, 60, 120, 300] as const;
 export type SimSpeed = (typeof SIM_SPEEDS)[number];
 
 export type OrbitalDataSource = "celestrak" | "cache" | "catalog";
