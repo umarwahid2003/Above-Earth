@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo } from "react";
-import { Satellite, X } from "lucide-react";
+import { Orbit, Satellite, Video, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useSatelliteStore } from "@/store/satellites";
 import type { CatalogRecord, SatelliteRecord } from "@/lib/types";
@@ -47,6 +47,8 @@ export default function DetailPanel() {
   const fullCatalog = useSatelliteStore((state) => state.fullCatalog);
   const catalogMode = useSatelliteStore((state) => state.catalogMode);
   const live = useSatelliteStore((state) => state.liveMetrics);
+  const cameraMode = useSatelliteStore((state) => state.cameraMode);
+  const setCameraMode = useSatelliteStore((state) => state.setCameraMode);
 
   const record: SatelliteRecord | CatalogRecord | null = useMemo(() => {
     if (catalogMode === "full") {
@@ -98,6 +100,36 @@ export default function DetailPanel() {
             className="flex size-7 shrink-0 items-center justify-center rounded-[2px] text-neutral-400 transition-colors hover:bg-white/15 hover:text-white"
           >
             <X className="size-4" />
+          </button>
+        </div>
+
+        {/* Camera POV Switcher */}
+        <div className="mt-3 grid grid-cols-2 gap-1 rounded-[2px] border border-white/15 bg-white/[0.03] p-1">
+          <button
+            onClick={() => setCameraMode("free")}
+            aria-pressed={cameraMode === "free"}
+            className={cn(
+              "flex items-center justify-center gap-1.5 rounded-[2px] py-1.5 text-[10px] font-bold uppercase tracking-wider transition-colors",
+              cameraMode === "free"
+                ? "bg-white text-black shadow-xs"
+                : "text-neutral-400 hover:bg-white/[0.08] hover:text-white"
+            )}
+          >
+            <Orbit className="size-3" />
+            Orbit Cam
+          </button>
+          <button
+            onClick={() => setCameraMode("pov")}
+            aria-pressed={cameraMode === "pov"}
+            className={cn(
+              "flex items-center justify-center gap-1.5 rounded-[2px] py-1.5 text-[10px] font-bold uppercase tracking-wider transition-colors",
+              cameraMode === "pov"
+                ? "bg-white text-black shadow-xs"
+                : "text-neutral-400 hover:bg-white/[0.08] hover:text-white"
+            )}
+          >
+            <Video className="size-3" />
+            Cockpit POV
           </button>
         </div>
 

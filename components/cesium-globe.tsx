@@ -129,6 +129,7 @@ export default function CesiumGlobe() {
   const showActive = useSatelliteStore((state) => state.showActive);
   const showRocketBodies = useSatelliteStore((state) => state.showRocketBodies);
   const showDebris = useSatelliteStore((state) => state.showDebris);
+  const cameraMode = useSatelliteStore((state) => state.cameraMode);
 
   const viewerRef = useRef<CesiumNS.Viewer | null>(null);
   const cesiumRef = useRef<typeof CesiumNS | null>(null);
@@ -138,6 +139,7 @@ export default function CesiumGlobe() {
   const multiplierRef = useRef(multiplier);
   const selectedIdRef = useRef(selectedId);
   const dataRef = useRef<SatelliteRecord[]>(satellites);
+  const cameraModeRef = useRef(cameraMode);
   const orbitModeRef = useRef(orbitMode);
   const queryRef = useRef(query);
   const categoryRef = useRef(category);
@@ -218,6 +220,14 @@ export default function CesiumGlobe() {
   useEffect(() => {
     apiRef.current?.applyOverlay("cities", showCities);
   }, [showCities]);
+
+  useEffect(() => {
+    const prev = cameraModeRef.current;
+    cameraModeRef.current = cameraMode;
+    if (prev === "pov" && cameraMode === "free") {
+      onSelectedChangeRef.current?.(selectedIdRef.current, true);
+    }
+  }, [cameraMode]);
 
   useEffect(() => {
     let viewer: CesiumNS.Viewer | null = null;
@@ -1116,12 +1126,16 @@ export default function CesiumGlobe() {
         let selectedVel: number | null = null;
         let selectedAlt: number | null = null;
         let selectedPos: CesiumNS.Cartesian3 | undefined;
+        let selectedEcfVec: { x: number; y: number; z: number } | null = null;
+        let selectedEcfVel: { x: number; y: number; z: number } | null = null;
 
         for (const sat of propagated) {
           try {
             const pv = propagate(sat.satrec, date);
             if (!pv || !pv.position) continue;
             const gmst = gstime(date);
+            const cosG = Math.cos(gmst);
+            const sinG = Math.sin(gmst);
             const ecf = eciToEcf(pv.position, gmst);
             const { x, y, z } = ecf;
             if (
@@ -1138,9 +1152,15 @@ export default function CesiumGlobe() {
                 selectedVel = Math.sqrt(
                   pv.velocity.x ** 2 + pv.velocity.y ** 2 + pv.velocity.z ** 2
                 );
+                selectedEcfVel = {
+                  x: pv.velocity.x * cosG + pv.velocity.y * sinG,
+                  y: -pv.velocity.x * sinG + pv.velocity.y * cosG,
+                  z: pv.velocity.z,
+                };
               }
               selectedAlt = Math.hypot(x, y, z) - EARTH_RADIUS_KM;
               selectedPos = pos;
+              selectedEcfVec = { x, y, z };
               metricsRef.alt = selectedAlt;
               metricsRef.vel = selectedVel;
             }
@@ -1217,8 +1237,15 @@ export default function CesiumGlobe() {
                         pv.velocity.y ** 2 +
                         pv.velocity.z ** 2
                     );
+                    selectedEcfVel = {
+                      x: pv.velocity.x * cosG + pv.velocity.y * sinG,
+                      y: -pv.velocity.x * sinG + pv.velocity.y * cosG,
+                      z: pv.velocity.z,
+                    };
                   }
                   selectedAlt = Math.hypot(ecfX, ecfY, z) - EARTH_RADIUS_KM;
+                  selectedPos = pos;
+                  selectedEcfVec = { x: ecfX, y: ecfY, z };
                   metricsRef.alt = selectedAlt;
                   metricsRef.vel = selectedVel;
                 }
@@ -1234,6 +1261,7 @@ export default function CesiumGlobe() {
           }
         }
 
+        const isPov = cameraModeRef.current === "pov";
         const targetId = modelTargetId;
         if (selectedFullId) {
           const selected = fullRecords.get(selectedFullId);
@@ -1242,6 +1270,65 @@ export default function CesiumGlobe() {
           modelPos.current = currentPositions.get(targetId) ?? null;
         } else {
           modelPos.current = null;
+        }
+
+        // Toggle 3D model & summary overlay visibility (hidden during first-person Cockpit POV)
+        modelEntity.show = !isPov && (selectedIdRef.current != null || selectedFullId != null);
+        summaryEntity.show = !isPov && (selectedIdRef.current != null || selectedFullId != null);
+
+        // Satellite First-Person Cockpit POV Camera Tracking
+        if (
+          isPov &&
+          selectedPos &&
+          selectedEcfVec &&
+          selectedEcfVel &&
+          !cesiumViewer.isDestroyed()
+        ) {
+          const rx = selectedEcfVec.x;
+          const ry = selectedEcfVec.y;
+          const rz = selectedEcfVec.z;
+          const rMag = Math.hypot(rx, ry, rz);
+
+          const vx = selectedEcfVel.x;
+          const vy = selectedEcfVel.y;
+          const vz = selectedEcfVel.z;
+          const vMag = Math.hypot(vx, vy, vz);
+
+          if (rMag > 0 && vMag > 0) {
+            // Up vector (Zenith)
+            const ux = rx / rMag;
+            const uy = ry / rMag;
+            const uz = rz / rMag;
+
+            // Velocity direction (Forward)
+            const fx = vx / vMag;
+            const fy = vy / vMag;
+            const fz = vz / vMag;
+
+            // Forward/down look direction angled toward Earth's horizon/surface ahead
+            const ldx = 0.88 * fx - 0.48 * ux;
+            const ldy = 0.88 * fy - 0.48 * uy;
+            const ldz = 0.88 * fz - 0.48 * uz;
+            const ldMag = Math.hypot(ldx, ldy, ldz);
+
+            // Up vector for camera
+            const cux = ux + 0.3 * fx;
+            const cuy = uy + 0.3 * fy;
+            const cuz = uz + 0.3 * fz;
+            const cuMag = Math.hypot(cux, cuy, cuz);
+
+            const camX = (rx + ux * 0.05) * 1000;
+            const camY = (ry + uy * 0.05) * 1000;
+            const camZ = (rz + uz * 0.05) * 1000;
+
+            cesiumViewer.camera.setView({
+              destination: new Cesium.Cartesian3(camX, camY, camZ),
+              orientation: {
+                direction: new Cesium.Cartesian3(ldx / ldMag, ldy / ldMag, ldz / ldMag),
+                up: new Cesium.Cartesian3(cux / cuMag, cuy / cuMag, cuz / cuMag),
+              },
+            });
+          }
         }
 
         if (!selectedFullId && orbitModeRef.current === "selected") {

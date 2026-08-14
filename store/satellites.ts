@@ -57,6 +57,8 @@ type SatelliteStore = {
   setReady: (ready: boolean) => void;
   validCount: number;
   setValidCount: (count: number) => void;
+  cameraMode: "free" | "pov";
+  setCameraMode: (mode: "free" | "pov") => void;
 
   showEarthImg: boolean;
   setShowEarthImg: (show: boolean) => void;
@@ -178,7 +180,13 @@ export const useSatelliteStore = create<SatelliteStore>((set, get) => ({
   setDataMeta: (meta) => set(meta),
 
   selectedId: DEFAULT_SELECTED_ID,
-  setSelectedId: (selectedId) => set({ selectedId }),
+  setSelectedId: (selectedId) =>
+    set((state) => ({
+      selectedId,
+      cameraMode: selectedId ? state.cameraMode : "free",
+    })),
+  cameraMode: "free",
+  setCameraMode: (cameraMode) => set({ cameraMode }),
   running: true,
   setRunning: (running) => set({ running }),
   live: true,
