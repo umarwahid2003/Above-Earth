@@ -29,9 +29,9 @@ export default function OrbitPathControl() {
 
   return (
     <div className="pointer-events-none flex flex-col items-center gap-1.5">
-      <div className="pointer-events-auto flex items-center gap-1.5 rounded-[3px] border border-white/20 bg-[#08080a]/90 px-2.5 py-1 shadow-2xl shadow-black/80 backdrop-blur-xl">
+      <div className="glass-panel pointer-events-auto flex items-center gap-1.5 rounded-xl px-2.5 py-1.5">
         <span className="flex items-center gap-1 pr-1 text-[10px] font-bold uppercase tracking-widest text-neutral-400">
-          <Orbit className="size-3 text-white" />
+          <Orbit className="size-3 text-sky-200" />
           ORBIT PATHS
         </span>
         <div className="h-3.5 w-px bg-white/15" />
@@ -41,9 +41,9 @@ export default function OrbitPathControl() {
             onClick={() => setOrbitMode(mode.value)}
             aria-pressed={orbitMode === mode.value}
             className={cn(
-              "rounded-[2px] px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider transition-colors",
+              "rounded-lg px-2 py-1 text-[10px] font-bold uppercase tracking-wider transition-colors",
               orbitMode === mode.value
-                ? "bg-white text-black shadow-xs"
+                ? "bg-sky-200 text-slate-950 shadow-xs"
                 : "text-neutral-400 hover:bg-white/[0.08] hover:text-white"
             )}
           >

@@ -1,4 +1,4 @@
-import type { SatelliteCategory } from "@/data/tles";
+import type { SatelliteCategory } from "@/data/categories";
 
 /** Crisp monochrome palette shared by every marker (no colour). */
 const MONO = {

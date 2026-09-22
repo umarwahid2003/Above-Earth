@@ -1,5 +1,4 @@
 import { create } from "zustand";
-import { TLES, ISS_NORAD_ID } from "@/data/tles";
 import type { CategoryFilter, OrbitPathMode } from "@/lib/filter";
 import type { CatalogMode, CatalogRecord, SatelliteRecord } from "@/lib/types";
 
@@ -13,17 +12,7 @@ export type FullCatalogStatus = "idle" | "loading" | "ready" | "error";
 /** Coarse client-side progress shown while the Full Catalog loads. */
 export type FullCatalogStage = "downloading" | "processing" | "rendering" | "done";
 
-const DEFAULT_SATELLITES: SatelliteRecord[] = TLES.map((tle) => ({
-  id: tle.id,
-  name: tle.name,
-  category: tle.category,
-  noradId: tle.noradId,
-  line1: tle.line1,
-  line2: tle.line2,
-}));
-
-const DEFAULT_SELECTED_ID =
-  TLES.find((tle) => tle.noradId === ISS_NORAD_ID)?.id ?? null;
+const DEFAULT_SATELLITES: SatelliteRecord[] = [];
 
 export type LiveMetrics = {
   simTimeMs: number | null;
@@ -38,11 +27,19 @@ type SatelliteStore = {
   lastUpdated: string | null;
   isStale: boolean;
   updatedCount: number;
+  freshCount: number;
+  staleCount: number;
+  oldestEpoch: string | null;
+  newestEpoch: string | null;
   setDataMeta: (meta: {
     source: OrbitalDataSource;
     lastUpdated: string | null;
     isStale: boolean;
     updatedCount: number;
+    freshCount: number;
+    staleCount: number;
+    oldestEpoch: string | null;
+    newestEpoch: string | null;
   }) => void;
 
   selectedId: string | null;
@@ -89,12 +86,16 @@ type SatelliteStore = {
   fullCatalogSource: "celestrak" | "cache" | null;
   fullCatalogUpdated: string | null;
   fullCatalogCount: number;
+  fullCatalogFreshCount: number;
+  fullCatalogStaleCount: number;
   setFullCatalogLoading: () => void;
   setFullCatalogReady: (payload: {
     satellites: CatalogRecord[];
     source: "celestrak" | "cache";
     updated: string | null;
     count: number;
+    freshCount: number;
+    staleCount: number;
   }) => void;
   setFullCatalogError: (message: string) => void;
   setFullCatalogCode: (code: string | null) => void;
@@ -180,9 +181,13 @@ export const useSatelliteStore = create<SatelliteStore>((set, get) => ({
   lastUpdated: null,
   isStale: true,
   updatedCount: 0,
+  freshCount: 0,
+  staleCount: 0,
+  oldestEpoch: null,
+  newestEpoch: null,
   setDataMeta: (meta) => set(meta),
 
-  selectedId: DEFAULT_SELECTED_ID,
+  selectedId: null,
   setSelectedId: (selectedId) =>
     set((state) => ({
       selectedId,
@@ -242,6 +247,8 @@ export const useSatelliteStore = create<SatelliteStore>((set, get) => ({
   fullCatalogSource: null,
   fullCatalogUpdated: null,
   fullCatalogCount: 0,
+  fullCatalogFreshCount: 0,
+  fullCatalogStaleCount: 0,
   setFullCatalogLoading: () =>
     set({
       fullCatalogStatus: "loading",
@@ -256,6 +263,8 @@ export const useSatelliteStore = create<SatelliteStore>((set, get) => ({
       fullCatalogSource: payload.source,
       fullCatalogUpdated: payload.updated,
       fullCatalogCount: payload.count,
+      fullCatalogFreshCount: payload.freshCount,
+      fullCatalogStaleCount: payload.staleCount,
       fullCatalogError: null,
       fullCatalogCode: null,
     }),

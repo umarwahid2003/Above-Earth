@@ -128,7 +128,7 @@ export default function CockpitHud() {
 
           <div className="rounded-[2px] border border-white/10 bg-white/[0.04] px-2.5 py-1">
             <div className="text-[9px] font-bold uppercase tracking-widest text-neutral-400">
-              Ground Velocity
+              Orbital Velocity
             </div>
             <div className="font-mono text-sm font-bold text-white tabular-nums">
               {vel != null ? formatVelocity(vel) : "---"}

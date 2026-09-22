@@ -20,12 +20,16 @@ export default function TransportControls() {
   const simTimeMs = useSatelliteStore((state) => state.liveMetrics.simTimeMs);
 
   const [popoverOpen, setPopoverOpen] = useState(false);
-  const [now, setNow] = useState(() => Date.now());
+  const [now, setNow] = useState<number | null>(null);
   const popoverRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
+    const initialTimer = window.setTimeout(() => setNow(Date.now()), 0);
     const timer = setInterval(() => setNow(Date.now()), 1000);
-    return () => clearInterval(timer);
+    return () => {
+      clearTimeout(initialTimer);
+      clearInterval(timer);
+    };
   }, []);
 
   useEffect(() => {
@@ -58,7 +62,7 @@ export default function TransportControls() {
 
   return (
     <>
-      <div className="pointer-events-auto flex items-center gap-1 rounded-[3px] border border-white/20 bg-[#08080a]/90 px-1.5 py-1 shadow-2xl shadow-black/80 backdrop-blur-xl">
+      <div className="glass-panel pointer-events-auto flex items-center gap-1 rounded-xl px-1.5 py-1">
         <button
           onClick={toggleRunning}
           aria-label={
@@ -71,7 +75,7 @@ export default function TransportControls() {
                 : "Resume simulation"
           }
           className={cn(
-            "flex size-8 items-center justify-center rounded-[2px] transition-colors",
+            "flex size-8 items-center justify-center rounded-lg transition-colors",
             running
               ? "text-neutral-300 hover:bg-white/10 hover:text-white"
               : "bg-white/20 text-white hover:bg-white/30"
@@ -91,7 +95,7 @@ export default function TransportControls() {
             onClick={returnToLive}
             aria-pressed={live}
             aria-label="LIVE NOW — showing current UTC time"
-            className="flex items-center gap-2 rounded-[2px] bg-white px-2.5 py-1 text-black shadow-xs"
+            className="flex items-center gap-2 rounded-lg bg-sky-200 px-2.5 py-1 text-slate-950 shadow-xs"
           >
             <Radio className="size-3 animate-pulse" />
             <span className="text-[10px] font-bold uppercase tracking-widest">LIVE NOW</span>
@@ -103,7 +107,7 @@ export default function TransportControls() {
           <button
             onClick={returnToLive}
             aria-label="Simulation mode — return to LIVE NOW"
-            className="flex items-center gap-2 rounded-[2px] bg-white/15 px-2.5 py-1 text-white shadow-xs"
+            className="flex items-center gap-2 rounded-lg bg-white/10 px-2.5 py-1 text-white shadow-xs"
           >
             <Clock className="size-3" />
             <span className="text-[10px] font-bold uppercase tracking-widest">Simulation</span>
@@ -123,7 +127,7 @@ export default function TransportControls() {
             onClick={() => setPopoverOpen((open) => !open)}
             aria-expanded={popoverOpen}
             aria-label="Simulation speed options"
-            className="flex items-center gap-1 rounded-[2px] px-2 py-1 text-[10px] font-bold uppercase tracking-wider text-neutral-400 transition-colors hover:bg-white/10 hover:text-white"
+            className="flex items-center gap-1 rounded-lg px-2 py-1 text-[10px] font-bold uppercase tracking-wider text-neutral-400 transition-colors hover:bg-white/10 hover:text-white"
           >
             <Clock className="size-3" />
             <ChevronDown
@@ -135,7 +139,7 @@ export default function TransportControls() {
           </button>
 
           {popoverOpen && (
-            <div className="absolute bottom-full right-0 mb-2 w-60 rounded-[3px] border border-white/20 bg-[#08080a]/95 p-2 shadow-2xl shadow-black/80 backdrop-blur-xl">
+            <div className="glass-panel absolute bottom-full right-0 mb-2 w-60 rounded-xl p-2">
               <p className="px-1.5 pb-0.5 pt-0.5 text-[11px] font-bold uppercase tracking-wider text-white">
                 Simulation Speed
               </p>
@@ -148,9 +152,9 @@ export default function TransportControls() {
                     key={speed}
                     onClick={() => enterSim(speed)}
                     className={cn(
-                      "flex-1 rounded-[2px] px-2 py-1 text-[10px] font-bold uppercase tracking-wider transition-colors",
+                      "flex-1 rounded-lg px-2 py-1 text-[10px] font-bold uppercase tracking-wider transition-colors",
                       !live && multiplier === speed
-                        ? "bg-white text-black"
+                        ? "bg-sky-200 text-slate-950"
                         : "bg-white/[0.06] text-neutral-300 hover:bg-white/15 hover:text-white"
                     )}
                   >
@@ -164,7 +168,7 @@ export default function TransportControls() {
       </div>
 
       {!live && (
-        <div className="pointer-events-auto flex flex-wrap items-center justify-center gap-2 rounded-[3px] border border-white/20 bg-[#08080a]/90 px-3 py-1 shadow-2xl shadow-black/80 backdrop-blur-xl">
+        <div className="glass-panel pointer-events-auto flex flex-wrap items-center justify-center gap-2 rounded-xl px-3 py-1">
           <span className="text-[10px] font-medium uppercase tracking-wide text-neutral-300">
             PREDICTED ORBIT
           </span>
@@ -173,7 +177,7 @@ export default function TransportControls() {
           </span>
           <button
             onClick={returnToLive}
-            className="flex items-center gap-1 rounded-[2px] bg-white px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-black transition-opacity hover:opacity-80"
+            className="flex items-center gap-1 rounded-lg bg-sky-200 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-slate-950 transition-opacity hover:opacity-80"
           >
             <RotateCcw className="size-2.5" />
             LIVE
@@ -182,7 +186,7 @@ export default function TransportControls() {
       )}
 
       <p className="pointer-events-none text-center font-mono text-[10px] uppercase tracking-wider text-neutral-500">
-        ORBITAL PROPAGATION VIA SGP4 · REAL-TIME ECF
+        SGP4 PROPAGATION · ECI TO ECEF
       </p>
     </>
   );

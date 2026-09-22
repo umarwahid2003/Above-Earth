@@ -3,7 +3,7 @@
 import { useEffect, useRef } from "react";
 import type * as CesiumNS from "cesium";
 import type { SatRec } from "satellite.js";
-import type { SatelliteCategory } from "@/data/tles";
+import type { SatelliteCategory } from "@/data/categories";
 import { filterSatellites } from "@/lib/filter";
 import { satelliteSprite, satelliteSpriteBright } from "@/lib/satellite-sprite";
 import type { CatalogRecord, SatelliteRecord } from "@/lib/types";
@@ -13,13 +13,12 @@ import {
   formatAltitude,
   formatVelocity,
   parseOrbit,
-  EARTH_RADIUS_KM,
+  recordToSatrec,
   type OrbitSnapshot,
 } from "@/lib/orbits";
 
-import { twoline2satrec } from "@/lib/satellite/io.js";
 import { propagate, gstime } from "@/lib/satellite/propagation.js";
-import { eciToEcf } from "@/lib/satellite/transforms.js";
+import { eciToEcf, eciToGeodetic } from "@/lib/satellite/transforms.js";
 
 type PropagatedSat = {
   id: string;
@@ -61,15 +60,14 @@ const FULL_POINT_PIXEL = 2.2;
 const FULL_POINT_HOVER_PIXEL = 3.8;
 const FULL_POINT_ALPHA = 0.55;
 const FULL_POINT_HOVER_ALPHA = 0.95;
-const FULL_SLICE_FRAMES = 12;
 const FULL_BUILD_CHUNK = 2500;
 
 // Background starfield is hidden at default/close zoom and fades in only as
 // the camera pulls far back, so the default view stays a clean black void.
 const STARFIELD_SIZE = 256;
-const STAR_COUNT = 130;
-const STAR_FADE_START_M = 60_000_000;
-const STAR_FADE_END_M = 160_000_000;
+const STAR_COUNT = 220;
+const STAR_FADE_START_M = 12_000_000;
+const STAR_FADE_END_M = 75_000_000;
 const STAR_FADE_TAU_MS = 170;
 const STAR_REDRAW_EPS = 0.02;
 const STAR_REDRAW_MIN_MS = 90;
@@ -92,6 +90,55 @@ const CATEGORY_ALPHA: Record<SatelliteCategory, number> = {
 };
 const MODEL_URI = "/models/satellite.gltf";
 const MODEL_TURN_RAD_PER_S = 0.7;
+
+type PerformanceProfile = {
+  targetFps: number;
+  resolutionScale: number;
+  minimumResolutionScale: number;
+  maximumScreenSpaceError: number;
+  fullSliceFrames: number;
+  fullPositionInterval: number;
+};
+
+function detectPerformanceProfile(): PerformanceProfile {
+  const nav = navigator as Navigator & { deviceMemory?: number };
+  const cores = nav.hardwareConcurrency || 4;
+  const memory = nav.deviceMemory ?? 4;
+  const constrainedViewport = window.matchMedia(
+    "(max-width: 767px), (pointer: coarse)"
+  ).matches;
+
+  if (constrainedViewport || cores <= 4 || memory <= 4) {
+    return {
+      targetFps: 30,
+      resolutionScale: 0.9,
+      minimumResolutionScale: 0.7,
+      maximumScreenSpaceError: 3,
+      fullSliceFrames: 28,
+      fullPositionInterval: 2,
+    };
+  }
+
+  if (cores <= 8 || memory <= 8) {
+    return {
+      targetFps: 45,
+      resolutionScale: 1,
+      minimumResolutionScale: 0.75,
+      maximumScreenSpaceError: 2,
+      fullSliceFrames: 18,
+      fullPositionInterval: 1,
+    };
+  }
+
+  return {
+    targetFps: 60,
+    resolutionScale: 1.15,
+    minimumResolutionScale: 0.85,
+    maximumScreenSpaceError: 1.5,
+    fullSliceFrames: 12,
+    fullPositionInterval: 1,
+  };
+}
 
 type GlobeApi = {
   applyDataset: (records: SatelliteRecord[]) => void;
@@ -156,7 +203,7 @@ export default function CesiumGlobe() {
     const wasRunning = runningRef.current;
     runningRef.current = running;
     if (viewerRef.current) {
-      viewerRef.current.clock.shouldAnimate = running;
+      viewerRef.current.clock.shouldAnimate = running && !document.hidden;
       if (running && !wasRunning && liveRef.current && cesiumRef.current) {
         viewerRef.current.clock.currentTime =
           cesiumRef.current.JulianDate.now();
@@ -244,6 +291,8 @@ export default function CesiumGlobe() {
     let isCancelled = false;
     let removeTickListener: (() => void) | null = null;
     let removeCameraChanged: (() => void) | null = null;
+    let removePostRender: (() => void) | null = null;
+    let removeVisibilityListener: (() => void) | null = null;
     let screenSpaceHandler: CesiumNS.ScreenSpaceEventHandler | null = null;
     let hoveredIdRef: string | null = null;
     let starRaf = 0;
@@ -274,6 +323,7 @@ export default function CesiumGlobe() {
         cesiumRef.current = Cesium;
 
         const container = containerRef.current;
+        const performanceProfile = detectPerformanceProfile();
 
         const cesiumViewer = new Cesium.Viewer(container, {
           baseLayer: false,
@@ -288,6 +338,9 @@ export default function CesiumGlobe() {
           infoBox: false,
           selectionIndicator: false,
           shouldAnimate: true,
+          requestRenderMode: true,
+          maximumRenderTimeChange: 1 / performanceProfile.targetFps,
+          targetFrameRate: performanceProfile.targetFps,
         });
 
       viewer = cesiumViewer;
@@ -300,22 +353,94 @@ export default function CesiumGlobe() {
       // state, a restrained starfield (faded in only when zoomed far out), and
       // a subtle blue atmospheric rim with realistic sun lighting (kept
       // full-colour for the Earth imagery).
-      globe.baseColor = Cesium.Color.fromCssColorString("#0a0a0a");
+      cesiumViewer.resolutionScale = performanceProfile.resolutionScale;
+      globe.baseColor = Cesium.Color.fromCssColorString("#071a2b");
       globe.enableLighting = false;
       globe.showGroundAtmosphere = true;
+      globe.depthTestAgainstTerrain = true;
+      globe.maximumScreenSpaceError = performanceProfile.maximumScreenSpaceError;
       scene.fog.enabled = true;
-      scene.backgroundColor = Cesium.Color.fromCssColorString("#050505");
+      scene.postProcessStages.fxaa.enabled = true;
+      if (scene.highDynamicRangeSupported) scene.highDynamicRange = true;
+      scene.backgroundColor = Cesium.Color.fromCssColorString("#02050a");
+
+      // Adapt down only when the real device cannot sustain its profile. This
+      // avoids the high-DPI performance cliff while keeping stronger hardware
+      // crisp. Recovery is deliberately slower to prevent quality oscillation.
+      let adaptiveScale = performanceProfile.resolutionScale;
+      let perfLastMs = 0;
+      let perfElapsedMs = 0;
+      let perfFrames = 0;
+      let stableWindows = 0;
+      removePostRender = scene.postRender.addEventListener(() => {
+        const now = performance.now();
+        if (perfLastMs === 0 || now - perfLastMs > 500) {
+          perfLastMs = now;
+          perfElapsedMs = 0;
+          perfFrames = 0;
+          return;
+        }
+        perfElapsedMs += now - perfLastMs;
+        perfLastMs = now;
+        perfFrames += 1;
+        if (perfElapsedMs < 4000) return;
+
+        const measuredFps = (perfFrames * 1000) / perfElapsedMs;
+        if (
+          measuredFps < performanceProfile.targetFps * 0.72 &&
+          adaptiveScale > performanceProfile.minimumResolutionScale
+        ) {
+          adaptiveScale = Math.max(
+            performanceProfile.minimumResolutionScale,
+            adaptiveScale - 0.1
+          );
+          cesiumViewer.resolutionScale = adaptiveScale;
+          stableWindows = 0;
+        } else if (
+          measuredFps > performanceProfile.targetFps * 0.94 &&
+          adaptiveScale < performanceProfile.resolutionScale
+        ) {
+          stableWindows += 1;
+          if (stableWindows >= 3) {
+            adaptiveScale = Math.min(
+              performanceProfile.resolutionScale,
+              adaptiveScale + 0.05
+            );
+            cesiumViewer.resolutionScale = adaptiveScale;
+            stableWindows = 0;
+          }
+        } else {
+          stableWindows = 0;
+        }
+        perfElapsedMs = 0;
+        perfFrames = 0;
+      });
+
+      const onVisibilityChange = () => {
+        if (cesiumViewer.isDestroyed()) return;
+        cesiumViewer.clock.shouldAnimate =
+          !document.hidden && runningRef.current;
+        if (!document.hidden) scene.requestRender();
+      };
+      document.addEventListener("visibilitychange", onVisibilityChange);
+      removeVisibilityListener = () =>
+        document.removeEventListener("visibilitychange", onVisibilityChange);
 
       // Canvas-generated restrained monochrome starfield skybox. Sparse, small,
       // dim stars; hidden entirely at default/close zoom so satellites stay the
       // clearest element on screen.
       const starPattern: StarDot[] = [];
+      let starSeed = 0x1a2b3c4d;
+      const seededRandom = (): number => {
+        starSeed = (1664525 * starSeed + 1013904223) >>> 0;
+        return starSeed / 0x100000000;
+      };
       for (let i = 0; i < STAR_COUNT; i++) {
         starPattern.push({
-          x: Math.random() * STARFIELD_SIZE,
-          y: Math.random() * STARFIELD_SIZE,
-          r: Math.random() * 0.6 + 0.35,
-          alpha: Math.random() * 0.3 + 0.15,
+          x: seededRandom() * STARFIELD_SIZE,
+          y: seededRandom() * STARFIELD_SIZE,
+          r: seededRandom() * 0.65 + 0.3,
+          alpha: seededRandom() * 0.38 + 0.12,
         });
       }
 
@@ -332,7 +457,7 @@ export default function CesiumGlobe() {
         canvas.height = STARFIELD_SIZE;
         const ctx = canvas.getContext("2d");
         if (ctx) {
-          ctx.fillStyle = "#050505";
+          ctx.fillStyle = "#02050a";
           ctx.fillRect(0, 0, STARFIELD_SIZE, STARFIELD_SIZE);
           for (const star of starPattern) {
             const alpha = star.alpha * multiplier;
@@ -450,13 +575,41 @@ export default function CesiumGlobe() {
         return provider;
       };
 
+      // Always keep a bundled Natural Earth texture underneath the network
+      // layer. The globe remains detailed and recognizable offline, while the
+      // Esri layer upgrades seamlessly to high-resolution imagery when ready.
+      let earthFallback: CesiumNS.ImageryLayer | null = null;
+      try {
+        const naturalEarth = await Cesium.TileMapServiceImageryProvider.fromUrl(
+          "/cesium/Assets/Textures/NaturalEarthII"
+        );
+        if (!isCancelled) {
+          earthFallback = cesiumViewer.imageryLayers.addImageryProvider(
+            naturalEarth
+          );
+          earthFallback.brightness = 0.86;
+          earthFallback.contrast = 1.08;
+          earthFallback.saturation = 1.08;
+          earthFallback.show = useSatelliteStore.getState().showEarthImg;
+        }
+      } catch {
+        // The ocean-blue globe base still provides a graceful final fallback.
+      }
+
+      // React development mode intentionally mounts and cleans up effects once
+      // before the real mount. The local provider resolves asynchronously, so
+      // stop here if that first Viewer has already been disposed.
+      if (isCancelled || cesiumViewer.isDestroyed()) return;
+
       const earth = cesiumViewer.imageryLayers.addImageryProvider(
         makeProvider(
           "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
           "Imagery tiles © Esri"
         )
       );
-      earth.contrast = 1.06;
+      earth.brightness = 0.94;
+      earth.contrast = 1.08;
+      earth.saturation = 1.06;
       earth.show = useSatelliteStore.getState().showEarthImg;
 
       const grid = cesiumViewer.imageryLayers.addImageryProvider(
@@ -500,7 +653,7 @@ export default function CesiumGlobe() {
       clock.multiplier = liveRef.current ? 1 : multiplierRef.current;
 
       cesiumViewer.camera.setView({
-        destination: Cesium.Cartesian3.fromDegrees(15, 22, 40_000_000),
+        destination: Cesium.Cartesian3.fromDegrees(15, 18, 25_500_000),
       });
 
       const currentPositions = new Map<string, CesiumNS.Cartesian3>();
@@ -536,7 +689,6 @@ export default function CesiumGlobe() {
             image: satelliteSprite(record.category),
             scale: new Cesium.ConstantProperty(SPRITE_BASE),
             color: Cesium.Color.WHITE,
-            disableDepthTestDistance: Number.POSITIVE_INFINITY,
           },
           label: {
             text: record.name,
@@ -553,7 +705,6 @@ export default function CesiumGlobe() {
             pixelOffset: new Cesium.Cartesian2(0, -26),
             horizontalOrigin: Cesium.HorizontalOrigin.CENTER,
             verticalOrigin: Cesium.VerticalOrigin.BOTTOM,
-            disableDepthTestDistance: Number.POSITIVE_INFINITY,
             show: false,
           },
         });
@@ -566,7 +717,7 @@ export default function CesiumGlobe() {
         const gmst = gstime(now);
         for (const record of records) {
           try {
-            const satrec = twoline2satrec(record.line1, record.line2);
+            const satrec = recordToSatrec(record);
             parsed.push({
               id: record.id,
               name: record.name,
@@ -598,7 +749,7 @@ export default function CesiumGlobe() {
       const initGmst = gstime(initNow);
       for (const record of dataRef.current) {
         try {
-          const satrec = twoline2satrec(record.line1, record.line2);
+          const satrec = recordToSatrec(record);
           propagated.push({
             id: record.id,
             name: record.name,
@@ -838,7 +989,6 @@ export default function CesiumGlobe() {
           pixelOffset: new Cesium.Cartesian2(0, -58),
           horizontalOrigin: Cesium.HorizontalOrigin.CENTER,
           verticalOrigin: Cesium.VerticalOrigin.BOTTOM,
-          disableDepthTestDistance: Number.POSITIVE_INFINITY,
           show: false,
         },
       });
@@ -876,7 +1026,6 @@ export default function CesiumGlobe() {
           pixelOffset: new Cesium.Cartesian2(0, -20),
           horizontalOrigin: Cesium.HorizontalOrigin.CENTER,
           verticalOrigin: Cesium.VerticalOrigin.BOTTOM,
-          disableDepthTestDistance: Number.POSITIVE_INFINITY,
           show: false,
         },
       });
@@ -1017,7 +1166,7 @@ export default function CesiumGlobe() {
           for (; index < end; index += 1) {
             const record = records[index];
             try {
-              const satrec = twoline2satrec(record.line1, record.line2);
+              const satrec = recordToSatrec(record);
               const pv = propagate(satrec, now);
               if (!pv || !pv.position) continue;
               const velocity = pv.velocity;
@@ -1044,7 +1193,6 @@ export default function CesiumGlobe() {
                 position: initialPos,
                 pixelSize: FULL_POINT_PIXEL,
                 color: Cesium.Color.WHITE.withAlpha(FULL_POINT_ALPHA),
-                disableDepthTestDistance: Number.POSITIVE_INFINITY,
                 id: record.id,
                 show: on,
               });
@@ -1135,6 +1283,7 @@ export default function CesiumGlobe() {
       );
 
       let lastFlushMs = 0;
+      let fullPositionFrame = 0;
 
       const handleTick = (tickClock: CesiumNS.Clock) => {
         const date = Cesium.JulianDate.toDate(tickClock.currentTime);
@@ -1165,7 +1314,7 @@ export default function CesiumGlobe() {
                   pv.velocity.x ** 2 + pv.velocity.y ** 2 + pv.velocity.z ** 2
                 );
               }
-              selectedAlt = Math.hypot(x, y, z) - EARTH_RADIUS_KM;
+              selectedAlt = eciToGeodetic(pv.position, gmst).height;
               selectedPos = pos;
               metricsRef.alt = selectedAlt;
               metricsRef.vel = selectedVel;
@@ -1189,8 +1338,13 @@ export default function CesiumGlobe() {
           const list = fullVisible;
 
           const start = fullSliceIndex;
-          fullSliceIndex = (fullSliceIndex + 1) % FULL_SLICE_FRAMES;
-          for (let i = start; i < list.length; i += FULL_SLICE_FRAMES) {
+          fullSliceIndex =
+            (fullSliceIndex + 1) % performanceProfile.fullSliceFrames;
+          for (
+            let i = start;
+            i < list.length;
+            i += performanceProfile.fullSliceFrames
+          ) {
             const f = list[i];
             try {
               const pv = propagate(f.satrec, date);
@@ -1208,17 +1362,23 @@ export default function CesiumGlobe() {
             }
           }
 
-          for (let i = 0; i < list.length; i++) {
-            const f = list[i];
-            const dt = (dateMs - f.simMs) / 1000;
-            const ex = f.eci.x + f.eci.vx * dt;
-            const ey = f.eci.y + f.eci.vy * dt;
-            const ez = f.eci.z + f.eci.vz * dt;
-            f.point.position = new Cesium.Cartesian3(
-              (ex * cosG + ey * sinG) * 1000,
-              (-ex * sinG + ey * cosG) * 1000,
-              ez * 1000
-            );
+          fullPositionFrame += 1;
+          if (
+            fullPositionFrame % performanceProfile.fullPositionInterval ===
+            0
+          ) {
+            for (let i = 0; i < list.length; i++) {
+              const f = list[i];
+              const dt = (dateMs - f.simMs) / 1000;
+              const ex = f.eci.x + f.eci.vx * dt;
+              const ey = f.eci.y + f.eci.vy * dt;
+              const ez = f.eci.z + f.eci.vz * dt;
+              f.point.position = new Cesium.Cartesian3(
+                (ex * cosG + ey * sinG) * 1000,
+                (-ex * sinG + ey * cosG) * 1000,
+                ez * 1000
+              );
+            }
           }
 
           if (selectedFullId) {
@@ -1244,7 +1404,7 @@ export default function CesiumGlobe() {
                         pv.velocity.z ** 2
                     );
                   }
-                  selectedAlt = Math.hypot(ecfX, ecfY, z) - EARTH_RADIUS_KM;
+                  selectedAlt = eciToGeodetic(pv.position, gmst).height;
                   selectedPos = pos;
                   metricsRef.alt = selectedAlt;
                   metricsRef.vel = selectedVel;
@@ -1498,27 +1658,50 @@ export default function CesiumGlobe() {
           dataRef.current = records;
           rebuildPropagated(records);
           applyOrbitMode();
+          scene.requestRender();
         },
-        applyOrbitMode,
+        applyOrbitMode: () => {
+          applyOrbitMode();
+          scene.requestRender();
+        },
         applyOverlay: (
           kind: "earth" | "borders" | "grid" | "cities",
           on: boolean
         ) => {
           const layer =
-            kind === "earth"
-              ? earth
-              : kind === "borders"
+            kind === "borders"
                 ? borders
                 : kind === "grid"
                   ? grid
                   : cities;
-          layer.show = on;
+          if (kind === "earth") {
+            earth.show = on;
+            if (earthFallback) earthFallback.show = on;
+          } else {
+            layer.show = on;
+          }
+          scene.requestRender();
         },
-        applyCatalogMode,
-        applyFullCatalog,
-        applyFullVisibility,
-        applyCameraMode,
-        resetView,
+        applyCatalogMode: () => {
+          applyCatalogMode();
+          scene.requestRender();
+        },
+        applyFullCatalog: () => {
+          applyFullCatalog();
+          scene.requestRender();
+        },
+        applyFullVisibility: () => {
+          applyFullVisibility();
+          scene.requestRender();
+        },
+        applyCameraMode: () => {
+          applyCameraMode();
+          scene.requestRender();
+        },
+        resetView: () => {
+          resetView();
+          scene.requestRender();
+        },
       };
 
       handleTick(clock);
@@ -1541,6 +1724,8 @@ export default function CesiumGlobe() {
       }
       removeTickListener?.();
       removeCameraChanged?.();
+      removePostRender?.();
+      removeVisibilityListener?.();
       if (screenSpaceHandler && !screenSpaceHandler.isDestroyed()) {
         screenSpaceHandler.destroy();
       }

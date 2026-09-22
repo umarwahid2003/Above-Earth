@@ -26,7 +26,7 @@ function MetricRow({
   return (
     <div
       className={cn(
-        "rounded-[2px] border border-white/10 bg-white/[0.03] px-2.5 py-1.5",
+        "rounded-lg border border-white/10 bg-white/[0.035] px-2.5 py-2",
         wide && "col-span-2"
       )}
     >
@@ -93,18 +93,18 @@ export default function DetailPanel() {
     const url = typeof window !== "undefined"
       ? `${window.location.origin}/?norad=${record.noradId}`
       : `https://above-earth.vercel.app/?norad=${record.noradId}`;
-    const text = `🛰️ Tracking ${record.name} (NORAD ${record.noradId}) in real-time at ${velocityLabel} and ${altitudeLabel} on Above Earth!`;
+    const text = `🛰️ Viewing the SGP4-modeled orbit of ${record.name} (NORAD ${record.noradId}) at ${velocityLabel} and ${altitudeLabel} on Above Earth.`;
     const shareUrl = `https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}&url=${encodeURIComponent(url)}`;
     window.open(shareUrl, "_blank", "noopener,noreferrer");
   };
 
   return (
-    <aside className="pointer-events-none fixed inset-x-0 bottom-24 z-20 md:bottom-auto md:inset-x-auto md:right-6 md:top-1/2 md:-translate-y-1/2 md:w-[20.5rem]">
-      <div className="pointer-events-auto mx-3 max-h-[65dvh] overflow-y-auto rounded-[4px] border border-white/20 bg-[#08080a]/90 p-3.5 shadow-2xl shadow-black/80 backdrop-blur-xl nice-scroll md:mx-0 md:max-h-[calc(100dvh-8rem)]">
+    <aside className="pointer-events-none fixed inset-x-0 bottom-24 z-20 sm:bottom-auto sm:inset-x-auto sm:right-5 sm:top-20 sm:w-[19.5rem] lg:right-6 lg:top-1/2 lg:-translate-y-1/2 lg:w-[21rem]">
+      <div className="glass-panel nice-scroll pointer-events-auto mx-3 max-h-[48dvh] overflow-y-auto rounded-2xl p-3.5 sm:mx-0 sm:max-h-[calc(100dvh-10rem)] lg:max-h-[calc(100dvh-8rem)]">
         <div className="flex items-start justify-between gap-3">
           <div className="flex min-w-0 items-start gap-2.5">
-            <div className="mt-0.5 flex size-8 shrink-0 items-center justify-center rounded-[2px] bg-white/10 ring-1 ring-white/20">
-              <Satellite className="size-4 text-white" />
+            <div className="mt-0.5 flex size-9 shrink-0 items-center justify-center rounded-xl bg-sky-300/10 ring-1 ring-sky-300/25">
+              <Satellite className="size-4 text-sky-200" />
             </div>
             <div className="min-w-0">
               <h2 className="truncate text-sm font-bold uppercase tracking-wider text-white">
@@ -118,24 +118,24 @@ export default function DetailPanel() {
           <button
             onClick={() => setSelectedId(null)}
             aria-label="Close satellite details"
-            className="flex size-7 shrink-0 items-center justify-center rounded-[2px] text-neutral-400 transition-colors hover:bg-white/15 hover:text-white"
+            className="flex size-7 shrink-0 items-center justify-center rounded-lg text-neutral-400 transition-colors hover:bg-white/10 hover:text-white"
           >
             <X className="size-4" />
           </button>
         </div>
 
         {/* Camera POV Switcher */}
-        <div className="mt-3 grid grid-cols-2 gap-1 rounded-[2px] border border-white/15 bg-white/[0.03] p-1">
+        <div className="mt-3 grid grid-cols-2 gap-1 rounded-xl border border-white/10 bg-black/20 p-1">
           <button
             onClick={() => setCameraMode("free")}
-            className="flex items-center justify-center gap-1.5 rounded-[2px] bg-white py-1.5 text-[10px] font-bold uppercase tracking-wider text-black shadow-xs transition-colors"
+            className="flex items-center justify-center gap-1.5 rounded-lg bg-sky-200 py-1.5 text-[10px] font-bold uppercase tracking-wider text-slate-950 shadow-xs transition-colors"
           >
             <Orbit className="size-3" />
             Orbit Cam
           </button>
           <button
             onClick={() => setCameraMode("pov")}
-            className="flex items-center justify-center gap-1.5 rounded-[2px] py-1.5 text-[10px] font-bold uppercase tracking-wider text-neutral-400 transition-colors hover:bg-white/[0.08] hover:text-white"
+            className="flex items-center justify-center gap-1.5 rounded-lg py-1.5 text-[10px] font-bold uppercase tracking-wider text-neutral-400 transition-colors hover:bg-white/[0.08] hover:text-white"
           >
             <Video className="size-3" />
             Cockpit POV
@@ -143,7 +143,7 @@ export default function DetailPanel() {
         </div>
 
         <div className="mt-2.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-[10px]">
-          <span className="rounded-[2px] border border-white/15 bg-white/10 px-1.5 py-0.5 font-bold uppercase tracking-wider text-white">
+          <span className="rounded-md border border-sky-300/20 bg-sky-300/10 px-1.5 py-0.5 font-bold uppercase tracking-wider text-sky-200">
             {snapshot?.orbitType ?? "ORBIT"}
           </span>
           <span className="font-mono text-neutral-400">
@@ -151,12 +151,12 @@ export default function DetailPanel() {
           </span>
         </div>
 
-        <div className="mt-2.5 rounded-[2px] border border-white/20 bg-white/[0.05] p-2.5">
+        <div className="mt-2.5 rounded-xl border border-sky-300/20 bg-gradient-to-br from-sky-300/[0.12] to-blue-400/[0.03] p-3">
           <div className="text-[9px] font-bold uppercase tracking-widest text-neutral-400">
-            Velocity · Live Telemetry
+            Modeled Orbital Velocity
           </div>
           <div className="mt-1 flex items-baseline justify-between gap-2">
-            <span className="font-mono text-xl font-bold leading-none text-white tabular-nums">
+              <span className="font-mono text-xl font-bold leading-none text-sky-100 tabular-nums">
               {velocityLabel}
             </span>
             {velocitySub && (
@@ -168,10 +168,10 @@ export default function DetailPanel() {
         </div>
 
         <div className="mt-2 grid grid-cols-2 gap-1.5">
-          <MetricRow label="Altitude · Live" value={altitudeLabel} />
+          <MetricRow label="Modeled Altitude" value={altitudeLabel} />
           <MetricRow
             label="Ground Track"
-            value="Active SGP4"
+            value="SGP4 Estimate"
             wide
           />
           <MetricRow
@@ -211,7 +211,7 @@ export default function DetailPanel() {
         <div className="mt-3 grid grid-cols-2 gap-1.5 border-t border-white/10 pt-2.5">
           <button
             onClick={handleCopyLink}
-            className="flex items-center justify-center gap-1.5 rounded-[2px] border border-white/15 bg-white/[0.04] py-1.5 text-[10px] font-bold uppercase tracking-wider text-neutral-300 transition-colors hover:border-white/30 hover:bg-white/10 hover:text-white"
+            className="flex items-center justify-center gap-1.5 rounded-lg border border-white/10 bg-white/[0.04] py-2 text-[10px] font-bold uppercase tracking-wider text-neutral-300 transition-colors hover:border-sky-300/30 hover:bg-sky-300/10 hover:text-white"
           >
             {copied ? (
               <>
@@ -227,7 +227,7 @@ export default function DetailPanel() {
           </button>
           <button
             onClick={handleShareX}
-            className="flex items-center justify-center gap-1.5 rounded-[2px] border border-white/15 bg-white/[0.04] py-1.5 text-[10px] font-bold uppercase tracking-wider text-neutral-300 transition-colors hover:border-white/30 hover:bg-white/10 hover:text-white"
+            className="flex items-center justify-center gap-1.5 rounded-lg border border-white/10 bg-white/[0.04] py-2 text-[10px] font-bold uppercase tracking-wider text-neutral-300 transition-colors hover:border-sky-300/30 hover:bg-sky-300/10 hover:text-white"
           >
             <Share2 className="size-3" />
             <span>Share to 𝕏</span>

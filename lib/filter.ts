@@ -1,4 +1,4 @@
-import type { SatelliteCategory } from "@/data/tles";
+import type { SatelliteCategory } from "@/data/categories";
 import type { CatalogRecord, SatelliteRecord } from "@/lib/types";
 
 export type CategoryFilter = SatelliteCategory | "All";

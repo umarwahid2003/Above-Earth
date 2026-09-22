@@ -16,8 +16,15 @@ import CockpitHud from "@/components/cockpit-hud";
 const CesiumGlobe = dynamic(() => import("@/components/cesium-globe"), {
   ssr: false,
   loading: () => (
-    <div className="flex h-full w-full items-center justify-center bg-[#050505]">
-      <Loader2 className="size-8 animate-spin text-neutral-300" />
+    <div className="relative flex h-full w-full items-center justify-center overflow-hidden bg-[#02050a]">
+      <div className="absolute size-[min(62vw,62vh)] rounded-full border border-sky-300/10 bg-[radial-gradient(circle_at_35%_30%,rgba(56,189,248,.18),rgba(3,105,161,.07)_38%,rgba(2,6,23,.2)_66%,transparent_67%)] shadow-[0_0_120px_rgba(14,165,233,.08)]" />
+      <div className="relative flex flex-col items-center gap-3 rounded-2xl border border-white/10 bg-slate-950/55 px-6 py-4 shadow-2xl backdrop-blur-xl">
+        <Loader2 className="size-5 animate-spin text-sky-300" />
+        <div className="text-center">
+          <p className="text-xs font-semibold uppercase tracking-[0.22em] text-white">Initializing orbital scene</p>
+          <p className="mt-1 font-mono text-[10px] uppercase tracking-wider text-slate-400">Loading Earth imagery and SGP4 models</p>
+        </div>
+      </div>
     </div>
   ),
 });
@@ -28,11 +35,16 @@ type OrbitalDataPayload = {
   lastUpdated?: string | null;
   isStale?: boolean;
   updatedCount?: number;
+  freshCount?: number;
+  staleCount?: number;
+  oldestEpoch?: string | null;
+  newestEpoch?: string | null;
 };
 
 export default function Scene() {
   const ready = useSatelliteStore((state) => state.ready);
   const validCount = useSatelliteStore((state) => state.validCount);
+  const selectedId = useSatelliteStore((state) => state.selectedId);
   const catalogMode = useSatelliteStore((state) => state.catalogMode);
   const cameraMode = useSatelliteStore((state) => state.cameraMode);
   const showEmpty = catalogMode === "explore" && ready && validCount === 0;
@@ -40,7 +52,10 @@ export default function Scene() {
   useEffect(() => {
     let cancelled = false;
     fetch("/api/satellites", { cache: "no-store" })
-      .then((response) => response.json())
+      .then((response) => {
+        if (!response.ok) throw new Error(`Satellite feed failed (${response.status})`);
+        return response.json();
+      })
       .then((data: OrbitalDataPayload) => {
         if (cancelled) return;
         if (data && Array.isArray(data.satellites) && data.satellites.length > 0) {
@@ -54,6 +69,10 @@ export default function Scene() {
             lastUpdated: data.lastUpdated ?? null,
             isStale: data.isStale !== false,
             updatedCount: data.updatedCount ?? 0,
+            freshCount: data.freshCount ?? 0,
+            staleCount: data.staleCount ?? 0,
+            oldestEpoch: data.oldestEpoch ?? null,
+            newestEpoch: data.newestEpoch ?? null,
           });
 
           // Check URL query parameters for deep linked satellite (?norad=25544 or ?id=iss)
@@ -85,10 +104,13 @@ export default function Scene() {
   const isPov = cameraMode === "pov";
 
   return (
-    <main className="relative h-screen w-screen overflow-hidden bg-[#050505] text-neutral-100">
+    <main className="relative h-screen w-screen overflow-hidden bg-[#02050a] text-neutral-100">
       <div className="absolute inset-0 z-0">
         <CesiumGlobe />
       </div>
+
+      <div aria-hidden className="pointer-events-none absolute inset-0 z-[1] bg-[radial-gradient(circle_at_center,transparent_45%,rgba(1,4,10,.2)_78%,rgba(1,3,8,.48)_100%)]" />
+      <div aria-hidden className="pointer-events-none absolute inset-x-0 top-0 z-[1] h-32 bg-gradient-to-b from-[#02050a]/55 to-transparent" />
 
       {!isPov && <SatellitePanel />}
       {!isPov && <MapControl />}
@@ -96,7 +118,11 @@ export default function Scene() {
       <CockpitHud />
 
       {!isPov && (
-        <div className="pointer-events-none absolute inset-x-0 bottom-4 z-10 flex flex-col items-center gap-2">
+        <div
+          className={`pointer-events-none absolute inset-x-0 bottom-3 z-10 flex flex-col items-center gap-1.5 px-3 transition-[right] duration-300 sm:bottom-5 sm:gap-2 ${
+            selectedId ? "sm:right-[21rem] lg:right-[23rem]" : "sm:right-0"
+          }`}
+        >
           <DataStatus />
           <OrbitPathControl />
           <TransportControls />

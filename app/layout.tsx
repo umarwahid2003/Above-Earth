@@ -17,9 +17,9 @@ const jetbrainsMono = JetBrains_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Above Earth — Real-Time 3D Orbital Satellite Tracker",
+  title: "Above Earth — Live 3D Orbital Satellite Tracker",
   description:
-    "Explore 15,000+ active satellites, space stations, and orbital debris in real time on a photorealistic 3D Earth globe with SGP4 propagation and Cockpit POV.",
+    "Explore active satellites on a 3D Earth globe using current CelesTrak orbital elements and SGP4 propagation estimates.",
   keywords: [
     "satellite tracker",
     "ISS tracker",
@@ -28,13 +28,13 @@ export const metadata: Metadata = {
     "Cesium 3D",
     "orbital mechanics",
     "SGP4",
-    "real-time space",
+    "live satellite data",
   ],
   authors: [{ name: "Umar Wahid" }],
   openGraph: {
-    title: "Above Earth — Real-Time 3D Orbital Satellite Tracker",
+    title: "Above Earth — Live 3D Orbital Satellite Tracker",
     description:
-      "Explore 15,000+ satellites, space stations, and rocket bodies in real time on an interactive 3D globe with Cockpit POV.",
+      "Explore active satellites using current CelesTrak orbital elements and SGP4 estimates on an interactive 3D globe.",
     url: "https://above-earth.vercel.app",
     siteName: "Above Earth",
     locale: "en_US",
@@ -42,9 +42,9 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: "summary_large_image",
-    title: "Above Earth — Real-Time 3D Orbital Satellite Tracker",
+    title: "Above Earth — Live 3D Orbital Satellite Tracker",
     description:
-      "Explore 15,000+ satellites and orbital debris in real-time 3D with first-person Cockpit POV.",
+      "Explore active satellites in 3D using current CelesTrak orbital elements and SGP4 propagation.",
   },
 };
 
@@ -54,7 +54,8 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       lang="en"
       className={`h-full antialiased ${spaceGrotesk.variable} ${jetbrainsMono.variable}`}
     >
-      <head>
+      <body className="h-full bg-[#050505] text-[#fafafa] font-sans antialiased selection:bg-white selection:text-black">
+        {children}
         <Script
           id="cesium-base-url"
           strategy="beforeInteractive"
@@ -63,9 +64,6 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
           }}
         />
         <Script src="/cesium/Cesium.js" strategy="beforeInteractive" />
-      </head>
-      <body className="h-full bg-[#050505] text-[#fafafa] font-sans antialiased selection:bg-white selection:text-black">
-        {children}
         <Analytics />
       </body>
     </html>

@@ -1,5 +1,7 @@
-import type { SatelliteCategory } from "@/data/tles";
-import type { SatelliteRecord } from "@/lib/types";
+import type { SatelliteCategory } from "@/data/categories";
+import type { SatRec } from "satellite.js";
+import type { OmmElements, OrbitalElements, SatelliteRecord } from "@/lib/types";
+import { json2satrec, twoline2satrec } from "./satellite/io.js";
 
 const MU = 398600.4418;
 export const EARTH_RADIUS_KM = 6371;
@@ -9,12 +11,10 @@ export const EARTH_RADIUS_KM = 6371;
  * curated Explore records or raw Full Catalog records alike. `category` is
  * optional because Full Catalog records carry an object type instead.
  */
-export type OrbitInput = {
+export type OrbitInput = OrbitalElements & {
   id: string;
   name: string;
   noradId: number;
-  line1: string;
-  line2: string;
   category?: SatelliteCategory;
 };
 
@@ -40,18 +40,70 @@ export type OrbitSnapshot = {
   flyRangeM: number;
 };
 
-/** Parse orbital facts from a TLE record using the standard fixed field columns. */
-export function parseOrbit(record: OrbitInput): OrbitSnapshot {
-  const epochYear = Number(record.line1.slice(18, 20)) + 2000;
-  const epochDay = Number(record.line1.slice(20, 32));
-  const epochMs = Date.UTC(epochYear, 0, 1) + (epochDay - 1) * 86_400_000;
+export function recordToSatrec(record: OrbitInput): SatRec {
+  if (record.omm) {
+    return json2satrec(record.omm);
+  }
+  if (record.line1 && record.line2) {
+    return twoline2satrec(record.line1, record.line2);
+  }
+  throw new Error(`No orbital elements for NORAD ${record.noradId}`);
+}
 
-  const inclinationDeg = Number(record.line2.slice(8, 16));
-  const raanDeg = Number(record.line2.slice(17, 25));
-  const eccField = record.line2.slice(26, 33).replace(/ /g, "0");
-  const eccentricity = Number(`0.${eccField}`);
-  const argPerigeeDeg = Number(record.line2.slice(34, 42));
-  const meanMotionRevPerDay = Number(record.line2.slice(52, 63));
+export function elementEpoch(record: OrbitalElements): Date {
+  if (record.omm) {
+    const value = record.omm.EPOCH.endsWith("Z")
+      ? record.omm.EPOCH
+      : `${record.omm.EPOCH}Z`;
+    return new Date(value);
+  }
+  if (!record.line1) return new Date(Number.NaN);
+  const shortYear = Number(record.line1.slice(18, 20));
+  const epochYear = shortYear < 57 ? shortYear + 2000 : shortYear + 1900;
+  const epochDay = Number(record.line1.slice(20, 32));
+  return new Date(Date.UTC(epochYear, 0, 1) + (epochDay - 1) * 86_400_000);
+}
+
+function fieldsFromOmm(omm: OmmElements) {
+  return {
+    inclinationDeg: Number(omm.INCLINATION),
+    raanDeg: Number(omm.RA_OF_ASC_NODE),
+    eccentricity: Number(omm.ECCENTRICITY),
+    argPerigeeDeg: Number(omm.ARG_OF_PERICENTER),
+    meanMotionRevPerDay: Number(omm.MEAN_MOTION),
+  };
+}
+
+/** Parse mean orbital facts from either modern OMM or legacy TLE elements. */
+export function parseOrbit(record: OrbitInput): OrbitSnapshot {
+  const fields = record.omm
+    ? fieldsFromOmm(record.omm)
+    : (() => {
+        if (!record.line2) throw new Error("Missing legacy TLE line 2");
+        const eccField = record.line2.slice(26, 33).replace(/ /g, "0");
+        return {
+          inclinationDeg: Number(record.line2.slice(8, 16)),
+          raanDeg: Number(record.line2.slice(17, 25)),
+          eccentricity: Number(`0.${eccField}`),
+          argPerigeeDeg: Number(record.line2.slice(34, 42)),
+          meanMotionRevPerDay: Number(record.line2.slice(52, 63)),
+        };
+      })();
+  const {
+    inclinationDeg,
+    raanDeg,
+    eccentricity,
+    argPerigeeDeg,
+    meanMotionRevPerDay,
+  } = fields;
+  if (
+    !Number.isFinite(inclinationDeg) ||
+    !Number.isFinite(eccentricity) ||
+    !Number.isFinite(meanMotionRevPerDay) ||
+    meanMotionRevPerDay <= 0
+  ) {
+    throw new Error(`Invalid orbital elements for NORAD ${record.noradId}`);
+  }
 
   const periodSec = 86_400 / meanMotionRevPerDay;
   const semiMajorAxisKm = Math.cbrt(
@@ -78,7 +130,7 @@ export function parseOrbit(record: OrbitInput): OrbitSnapshot {
     orbitType = "GSO";
   }
 
-  const epoch = new Date(epochMs);
+  const epoch = elementEpoch(record);
   const epochLabel = epoch
     .toISOString()
     .replace("T", " ")

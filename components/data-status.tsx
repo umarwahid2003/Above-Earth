@@ -27,6 +27,8 @@ export default function DataStatus() {
   const source = useSatelliteStore((state) => state.dataSource);
   const lastUpdated = useSatelliteStore((state) => state.lastUpdated);
   const isStale = useSatelliteStore((state) => state.isStale);
+  const freshCount = useSatelliteStore((state) => state.freshCount);
+  const staleCount = useSatelliteStore((state) => state.staleCount);
   const catalogMode = useSatelliteStore((state) => state.catalogMode);
   const fullCatalogStatus = useSatelliteStore(
     (state) => state.fullCatalogStatus
@@ -38,6 +40,9 @@ export default function DataStatus() {
     (state) => state.fullCatalogUpdated
   );
   const fullCatalogCount = useSatelliteStore((state) => state.fullCatalogCount);
+  const fullCatalogStaleCount = useSatelliteStore(
+    (state) => state.fullCatalogStaleCount
+  );
   const fullCatalogStage = useSatelliteStore((state) => state.fullCatalogStage);
   const [now, setNow] = useState(() => Date.now());
 
@@ -75,11 +80,14 @@ export default function DataStatus() {
         <p className="pointer-events-none flex items-center justify-center gap-1.5 text-center font-mono text-[10px] uppercase tracking-wider text-neutral-400">
           <Radio className="size-3 shrink-0 text-white" />
           <span className="font-bold text-white">
-            CATALOG · {fullCatalogCount.toLocaleString("en-US")} ACTIVE
+            {fullCatalogCount.toLocaleString("en-US")} ACTIVE SATELLITES
           </span>
           <span>
             · {fullCatalogSource === "celestrak" ? "CELESTRAK" : "CACHED"}
             {fullRelative ? ` (${fullRelative})` : ""}
+            {fullCatalogStaleCount > 0
+              ? ` · ${fullCatalogStaleCount.toLocaleString("en-US")} STALE ELEMENTS`
+              : " · CURRENT ELEMENTS"}
           </span>
         </p>
       );
@@ -89,17 +97,20 @@ export default function DataStatus() {
 
   const relative = formatRelative(lastUpdated, now);
 
-  if (source === "celestrak") {
+  if (source === "celestrak" || source === "cache") {
     return (
       <p className="pointer-events-none flex items-center justify-center gap-1.5 text-center font-mono text-[10px] uppercase tracking-wider text-neutral-400">
         <Radio className="size-3 shrink-0 text-white" />
-        <span className="font-bold text-white">LIVE TELEMETRY</span>
-        <span>· CELESTRAK ({relative})</span>
+        <span className="font-bold text-white">SGP4 MODEL · CELESTRAK</span>
+        <span>
+          · {freshCount} CURRENT{staleCount > 0 ? ` · ${staleCount} STALE` : ""}
+          {relative ? ` · UPDATED ${relative}` : ""}
+        </span>
       </p>
     );
   }
 
-  const storedSource = source === "cache" ? "CACHED" : "BUNDLED";
+  const storedSource = "BUNDLED";
 
   return (
     <p className="pointer-events-none flex items-center justify-center gap-1.5 text-center font-mono text-[10px] uppercase tracking-wider text-neutral-400">

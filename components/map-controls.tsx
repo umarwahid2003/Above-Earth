@@ -21,7 +21,7 @@ function ToggleRow({
       onClick={() => onChange(!on)}
       role="switch"
       aria-checked={on}
-      className="flex w-full items-center justify-between gap-3 rounded-[2px] px-2.5 py-1.5 text-left transition-colors hover:bg-white/[0.06]"
+      className="flex w-full items-center justify-between gap-3 rounded-lg px-3 py-2 text-left transition-colors hover:bg-white/[0.06]"
     >
       <div className="min-w-0">
         <div className="text-xs font-semibold uppercase tracking-wide text-neutral-100">{label}</div>
@@ -29,14 +29,14 @@ function ToggleRow({
       </div>
       <span
         className={cn(
-          "relative inline-flex h-4 w-7 shrink-0 items-center rounded-[2px] transition-colors",
-          on ? "bg-white" : "bg-white/20"
+          "relative inline-flex h-5 w-9 shrink-0 items-center rounded-full border transition-colors",
+          on ? "border-sky-300/70 bg-sky-300" : "border-white/15 bg-white/10"
         )}
       >
         <span
           className={cn(
-            "inline-block size-3 rounded-[1px] shadow-xs transition-transform",
-            on ? "translate-x-[14px] bg-black" : "translate-x-[2px] bg-white"
+            "inline-block size-3.5 rounded-full shadow-sm transition-transform",
+            on ? "translate-x-[18px] bg-slate-950" : "translate-x-[3px] bg-slate-300"
           )}
         />
       </span>
@@ -59,13 +59,13 @@ export default function MapControl() {
   return (
     <section className="pointer-events-none absolute right-4 top-4 z-10 flex flex-col items-end gap-2 sm:right-5 sm:top-5">
       {open && (
-        <div className="pointer-events-auto w-60 max-w-[calc(100vw-2rem)] rounded-[4px] border border-white/20 bg-[#08080a]/90 p-2 shadow-2xl shadow-black/80 backdrop-blur-xl">
+        <div className="glass-panel pointer-events-auto w-64 max-w-[calc(100vw-2rem)] rounded-2xl p-2.5">
           <div className="flex items-center justify-between pb-1 pl-2 pr-1 pt-1">
             <h2 className="text-xs font-bold uppercase tracking-wider text-white">Earth &amp; Map Layers</h2>
             <button
               onClick={() => setOpen(false)}
               aria-label="Close Earth & Map controls"
-              className="flex size-6 items-center justify-center rounded-[2px] text-neutral-400 transition-colors hover:bg-white/15 hover:text-white"
+              className="flex size-7 items-center justify-center rounded-lg text-neutral-400 transition-colors hover:bg-white/10 hover:text-white"
             >
               <X className="size-3.5" />
             </button>
@@ -105,7 +105,7 @@ export default function MapControl() {
           onClick={() => resetAll()}
           title="Reset to initial global overview, clear selections and filters"
           aria-label="Reset application state to initial overview"
-          className="pointer-events-auto flex h-10 items-center gap-1.5 rounded-[3px] border border-white/20 bg-[#08080a]/90 px-3 text-xs font-bold uppercase tracking-wider text-neutral-300 shadow-2xl backdrop-blur-xl transition-all hover:border-white/40 hover:bg-white/10 hover:text-white active:scale-95"
+          className="glass-panel pointer-events-auto flex h-10 items-center gap-1.5 rounded-xl px-3 text-xs font-bold uppercase tracking-wider text-slate-300 transition-all hover:border-sky-300/30 hover:bg-sky-300/10 hover:text-white active:scale-95"
         >
           <RotateCcw className="size-3.5" />
           <span className="hidden sm:inline">Reset</span>
@@ -118,10 +118,10 @@ export default function MapControl() {
             open ? "Hide Earth & Map controls" : "Show Earth & Map controls"
           }
           className={cn(
-            "pointer-events-auto flex size-10 items-center justify-center rounded-[3px] border shadow-2xl backdrop-blur-xl transition-all",
+            "glass-panel pointer-events-auto flex size-10 items-center justify-center rounded-xl transition-all",
             open
-              ? "border-white/40 bg-white/20 text-white"
-              : "border-white/20 bg-[#08080a]/90 text-neutral-300 hover:border-white/40 hover:text-white"
+              ? "border-sky-300/50 bg-sky-300/15 text-sky-200"
+              : "text-slate-300 hover:border-sky-300/30 hover:text-sky-200"
           )}
         >
           <Layers className="size-4.5" />

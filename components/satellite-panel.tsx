@@ -21,7 +21,7 @@ import { cn } from "@/lib/utils";
 import {
   SATELLITE_CATEGORIES,
   type SatelliteCategory,
-} from "@/data/tles";
+} from "@/data/categories";
 import {
   filterFullCatalog,
   filterSatellites,
@@ -70,6 +70,8 @@ type FullCatalogPayload = {
   source?: string;
   lastUpdated?: string | null;
   count?: number;
+  freshCount?: number;
+  staleCount?: number;
   error?: FullCatalogErrorPayload;
 };
 
@@ -104,14 +106,6 @@ export default function SatellitePanel() {
     (state) => state.fullCatalogFetchId
   );
   const resetFullCatalog = useSatelliteStore((state) => state.resetFullCatalog);
-  const showActive = useSatelliteStore((state) => state.showActive);
-  const setShowActive = useSatelliteStore((state) => state.setShowActive);
-  const showRocketBodies = useSatelliteStore((state) => state.showRocketBodies);
-  const setShowRocketBodies = useSatelliteStore(
-    (state) => state.setShowRocketBodies
-  );
-  const showDebris = useSatelliteStore((state) => state.showDebris);
-  const setShowDebris = useSatelliteStore((state) => state.setShowDebris);
   const resetAll = useSatelliteStore((state) => state.resetAll);
 
   const filtered = useMemo(
@@ -122,22 +116,12 @@ export default function SatellitePanel() {
   const fullFiltered = useMemo(
     () =>
       filterFullCatalog(fullCatalog, query, {
-        active: showActive,
-        rocketBody: showRocketBodies,
-        debris: showDebris,
+        active: true,
+        rocketBody: false,
+        debris: false,
       }),
-    [fullCatalog, query, showActive, showRocketBodies, showDebris]
+    [fullCatalog, query]
   );
-
-  const fullCounts = useMemo(() => {
-    const counts = { active: 0, rocketBody: 0, debris: 0 };
-    for (const record of fullCatalog) {
-      if (record.objectType === "active") counts.active += 1;
-      else if (record.objectType === "rocketBody") counts.rocketBody += 1;
-      else if (record.objectType === "debris") counts.debris += 1;
-    }
-    return counts;
-  }, [fullCatalog]);
 
   const fullList = fullFiltered.slice(0, FULL_LIST_LIMIT);
 
@@ -193,6 +177,8 @@ export default function SatellitePanel() {
             typeof data.count === "number"
               ? data.count
               : data.satellites.length,
+          freshCount: data.freshCount ?? 0,
+          staleCount: data.staleCount ?? 0,
         });
         stageTimer = window.setTimeout(() => {
           if (!active) return;
@@ -283,7 +269,7 @@ export default function SatellitePanel() {
           onClick={() => setOpen(true)}
           aria-label="Open satellite mission browser"
           aria-expanded={open}
-          className="fixed left-4 top-4 z-20 flex items-center gap-2.5 rounded-[3px] border border-white/20 bg-[#08080a]/90 px-3 py-2 text-neutral-200 shadow-2xl shadow-black/80 backdrop-blur-xl transition-all hover:border-white/40 hover:bg-[#0c0c10] hover:text-white sm:left-5 sm:top-5"
+          className="glass-panel fixed left-4 top-4 z-20 flex items-center gap-2.5 rounded-xl px-3 py-2 text-neutral-200 transition-all hover:border-sky-300/30 hover:bg-sky-300/[0.07] hover:text-white sm:left-5 sm:top-5"
         >
           <div className="flex size-6 shrink-0 items-center justify-center rounded-[2px] bg-white/10 ring-1 ring-white/20 overflow-hidden">
             <Image
@@ -324,7 +310,7 @@ export default function SatellitePanel() {
           ref={panelRef}
           role="dialog"
           aria-label="Satellite mission browser"
-          className="fixed inset-x-3 top-3 z-30 flex max-h-[calc(100dvh-1.5rem)] flex-col rounded-[4px] border border-white/20 bg-[#08080a]/95 shadow-2xl shadow-black/90 backdrop-blur-2xl md:inset-x-auto md:left-4 md:top-4 md:h-[calc(100dvh-2rem)] md:max-h-[820px] md:w-[21rem] animate-in fade-in zoom-in-95 duration-150"
+          className="glass-panel fixed inset-x-3 top-3 z-30 flex max-h-[calc(100dvh-1.5rem)] flex-col rounded-2xl md:inset-x-auto md:left-4 md:top-4 md:h-[calc(100dvh-2rem)] md:max-h-[820px] md:w-[21rem] animate-in fade-in zoom-in-95 duration-150"
         >
           {/* Header */}
           <div className="shrink-0 border-b border-white/15 p-3.5">
@@ -350,7 +336,7 @@ export default function SatellitePanel() {
                           <span className="font-bold text-white tabular-nums">
                             {fullCatalogCount.toLocaleString("en-US")}
                           </span>{" "}
-                          ACTIVE OBJECTS
+                          ACTIVE SATELLITES
                         </>
                       ) : (
                         "FULL CATALOG"
@@ -386,14 +372,14 @@ export default function SatellitePanel() {
             </div>
 
             {/* Segmented Control */}
-            <div className="mt-3 grid grid-cols-2 gap-1 rounded-[2px] border border-white/15 bg-white/[0.03] p-1">
+            <div className="mt-3 grid grid-cols-2 gap-1 rounded-xl border border-white/10 bg-black/20 p-1">
               <button
                 onClick={() => setCatalogMode("explore")}
                 aria-pressed={catalogMode === "explore"}
                 className={cn(
-                  "flex min-w-0 flex-col items-start rounded-[2px] px-2.5 py-1.5 text-left transition-colors",
+                  "flex min-w-0 flex-col items-start rounded-lg px-2.5 py-1.5 text-left transition-colors",
                   catalogMode === "explore"
-                    ? "bg-white text-black font-semibold shadow-xs"
+                    ? "bg-sky-200 text-slate-950 font-semibold shadow-xs"
                     : "text-neutral-300 hover:bg-white/[0.08]"
                 )}
               >
@@ -421,9 +407,9 @@ export default function SatellitePanel() {
                 onClick={() => setCatalogMode("full")}
                 aria-pressed={catalogMode === "full"}
                 className={cn(
-                  "flex min-w-0 flex-col items-start rounded-[2px] px-2.5 py-1.5 text-left transition-colors",
+                  "flex min-w-0 flex-col items-start rounded-lg px-2.5 py-1.5 text-left transition-colors",
                   catalogMode === "full"
-                    ? "bg-white text-black font-semibold shadow-xs"
+                    ? "bg-sky-200 text-slate-950 font-semibold shadow-xs"
                     : "text-neutral-300 hover:bg-white/[0.08]"
                 )}
               >
@@ -460,7 +446,7 @@ export default function SatellitePanel() {
                     ? "Search name or NORAD ID…"
                     : "Search satellites…"
                 }
-                className="w-full rounded-[2px] border border-white/15 bg-white/[0.04] py-1.5 pl-8 pr-8 text-xs font-medium text-neutral-100 placeholder:text-neutral-500 focus:border-white/50 focus:outline-none focus:ring-1 focus:ring-white/25"
+                className="w-full rounded-lg border border-white/10 bg-black/20 py-2 pl-8 pr-8 text-xs font-medium text-neutral-100 placeholder:text-neutral-500 focus:border-sky-300/50 focus:outline-none focus:ring-1 focus:ring-sky-300/25"
               />
               {query && (
                 <button
@@ -493,32 +479,6 @@ export default function SatellitePanel() {
               </div>
             )}
 
-            {catalogMode === "full" &&
-              fullCatalogStatus === "ready" &&
-              fullCatalogStage !== null &&
-              fullCatalogStage !== "processing" &&
-              fullCatalogStage !== "rendering" && (
-                <div className="mt-2.5 flex flex-wrap gap-1">
-                  <ObjectToggle
-                    active={showActive}
-                    onClick={() => setShowActive(!showActive)}
-                    label="Active"
-                    count={fullCounts.active}
-                  />
-                  <ObjectToggle
-                    active={showRocketBodies}
-                    onClick={() => setShowRocketBodies(!showRocketBodies)}
-                    label="R/B"
-                    count={fullCounts.rocketBody}
-                  />
-                  <ObjectToggle
-                    active={showDebris}
-                    onClick={() => setShowDebris(!showDebris)}
-                    label="Debris"
-                    count={fullCounts.debris}
-                  />
-                </div>
-              )}
 
             {catalogMode === "full" && fullCatalogStatus === "error" && (
               <div className="mt-2.5 flex items-center justify-between gap-2 rounded-[2px] border border-red-500/20 bg-red-500/10 px-2.5 py-1.5 text-xs text-red-200">
@@ -578,9 +538,9 @@ export default function SatellitePanel() {
                           onClick={() => setSelectedId(record.id)}
                           aria-pressed={active}
                           className={cn(
-                            "flex w-full items-center gap-2 rounded-[2px] px-2.5 py-1.5 text-left transition-colors",
+                            "flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-left transition-colors",
                             active
-                              ? "bg-white text-black font-semibold shadow-xs"
+                              ? "bg-sky-200 text-slate-950 font-semibold shadow-xs"
                               : "hover:bg-white/[0.06]"
                           )}
                         >
@@ -632,7 +592,7 @@ export default function SatellitePanel() {
             {catalogMode === "full" ? (
               <span>
                 SHOWING {list.length} OF{" "}
-                {fullFiltered.length.toLocaleString("en-US")} ACTIVE OBJECTS
+                {fullFiltered.length.toLocaleString("en-US")} ACTIVE SATELLITES
               </span>
             ) : (
               <span>
@@ -662,49 +622,14 @@ function FilterChip({
     <button
       onClick={onClick}
       className={cn(
-        "inline-flex shrink-0 items-center gap-1 whitespace-nowrap rounded-[2px] border px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider transition-colors",
+        "inline-flex shrink-0 items-center gap-1 whitespace-nowrap rounded-lg border px-2 py-1 text-[10px] font-bold uppercase tracking-wider transition-colors",
         active
-          ? "border-white bg-white text-black"
+          ? "border-sky-200 bg-sky-200 text-slate-950"
           : "border-white/15 bg-white/[0.02] text-neutral-400 hover:border-white/30 hover:bg-white/[0.06] hover:text-white"
       )}
     >
       {Glyph ? <Glyph className="size-2.5" /> : null}
       {label}
-    </button>
-  );
-}
-
-function ObjectToggle({
-  label,
-  count,
-  active,
-  onClick,
-}: {
-  label: string;
-  count: number;
-  active: boolean;
-  onClick: () => void;
-}) {
-  return (
-    <button
-      onClick={onClick}
-      aria-pressed={active}
-      className={cn(
-        "inline-flex shrink-0 items-center gap-1 whitespace-nowrap rounded-[2px] border px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider transition-colors",
-        active
-          ? "border-white bg-white text-black"
-          : "border-white/15 bg-white/[0.02] text-neutral-400 hover:border-white/30 hover:bg-white/[0.06] hover:text-white"
-      )}
-    >
-      {label}
-      <span
-        className={cn(
-          "font-mono text-[9px] tabular-nums",
-          active ? "text-black/70" : "text-neutral-500"
-        )}
-      >
-        {count.toLocaleString("en-US")}
-      </span>
     </button>
   );
 }

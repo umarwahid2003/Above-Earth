@@ -1,24 +1,64 @@
 import { promises as fs } from "node:fs";
 import path from "node:path";
-import { TLES } from "@/data/tles";
 import activeCatalogData from "@/data/active-catalog.json";
+import type { SatelliteCategory } from "@/data/categories";
 import type { OrbitalDataSource } from "@/store/satellites";
-import type { CatalogObjectType, CatalogRecord, SatelliteRecord } from "@/lib/types";
+import type {
+  CatalogRecord,
+  OmmElements,
+  SatelliteRecord,
+} from "@/lib/types";
 
-const CACHE_TTL_MS = 6 * 60 * 60 * 1000;
+const CACHE_VERSION = 2;
+const CACHE_TTL_MS = 2 * 60 * 60 * 1000;
+const FAILURE_RETRY_MS = 15 * 60 * 1000;
+const FRESH_ELEMENT_MS = 3.5 * 24 * 60 * 60 * 1000;
 const CACHE_DIR = path.join(process.cwd(), ".cache");
-const CACHE_FILE = path.join(CACHE_DIR, "orbital-data.json");
+const ACTIVE_CACHE_FILE = path.join(CACHE_DIR, "celestrak-active-omm-v2.json");
 const CELESTRAK_URL = "https://celestrak.org/NORAD/elements/gp.php";
-const FETCH_TIMEOUT_MS = 15_000;
-const CATALOG_EPOCH = "2026-08-11T12:00:00.000Z";
+const FETCH_TIMEOUT_MS = 20_000;
+const EXPLORE_SIZE = 123;
 
-export const CATALOG_EPOCH_LABEL = "2026-08-11 12:00:00Z";
+type DataQuality = {
+  freshCount: number;
+  staleCount: number;
+  oldestEpoch: string | null;
+  newestEpoch: string | null;
+};
 
-/**
- * Structured error produced by the Full Catalog provider. `code` is a stable
- * diagnostic key surfaced to the UI and logs; `message` is a safe
- * user-facing string that never leaks internals.
- */
+type OrbitalDataResponse = DataQuality & {
+  source: OrbitalDataSource;
+  lastUpdated: string;
+  isStale: boolean;
+  satelliteCount: number;
+  updatedCount: number;
+  satellites: SatelliteRecord[];
+};
+
+export type FullCatalogResponse = DataQuality & {
+  source: "celestrak" | "cache";
+  lastUpdated: string;
+  isStale: boolean;
+  count: number;
+  satellites: CatalogRecord[];
+};
+
+type ActiveCacheEntry = {
+  version: number;
+  fetchedAt: number;
+  satellites: CatalogRecord[];
+};
+
+type ActiveDataset = ActiveCacheEntry & {
+  source: "celestrak" | "cache" | "catalog";
+  sourceStale: boolean;
+};
+
+type ActiveMemory = {
+  expiresAt: number;
+  dataset: ActiveDataset;
+};
+
 export class FullCatalogError extends Error {
   constructor(
     public readonly code:
@@ -33,419 +73,374 @@ export class FullCatalogError extends Error {
   }
 }
 
-type OrbitalDataResponse = {
-  source: OrbitalDataSource;
-  lastUpdated: string;
-  isStale: boolean;
-  satelliteCount: number;
-  updatedCount: number;
-  satellites: SatelliteRecord[];
-};
+let activeMemory: ActiveMemory | null = null;
+let activeInflight: Promise<ActiveDataset> | null = null;
 
-type CacheEntry = {
-  fetchedAt: number;
-  satellites: SatelliteRecord[];
-};
+function finite(value: unknown): number {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : Number.NaN;
+}
 
-export type FullCatalogResponse = {
-  source: "celestrak" | "cache";
-  lastUpdated: string;
-  isStale: boolean;
-  count: number;
-  satellites: CatalogRecord[];
-};
+function parseCsv(text: string): Record<string, string>[] {
+  const rows: string[][] = [];
+  let row: string[] = [];
+  let field = "";
+  let quoted = false;
+  for (let index = 0; index < text.length; index += 1) {
+    const char = text[index];
+    if (char === '"') {
+      if (quoted && text[index + 1] === '"') {
+        field += '"';
+        index += 1;
+      } else {
+        quoted = !quoted;
+      }
+    } else if (char === "," && !quoted) {
+      row.push(field);
+      field = "";
+    } else if ((char === "\n" || char === "\r") && !quoted) {
+      if (char === "\r" && text[index + 1] === "\n") index += 1;
+      row.push(field);
+      field = "";
+      if (row.some(Boolean)) rows.push(row);
+      row = [];
+    } else {
+      field += char;
+    }
+  }
+  if (field || row.length) {
+    row.push(field);
+    rows.push(row);
+  }
+  const [headers, ...values] = rows;
+  if (!headers) return [];
+  return values.map((cells) =>
+    Object.fromEntries(headers.map((header, index) => [header, cells[index] ?? ""]))
+  );
+}
 
-type FullCatalogCacheEntry = {
-  fetchedAt: number;
-  satellites: CatalogRecord[];
-};
+function normalizeOmm(value: unknown): OmmElements | null {
+  if (!value || typeof value !== "object") return null;
+  const row = value as Record<string, unknown>;
+  const noradId = finite(row.NORAD_CAT_ID);
+  const epoch = String(row.EPOCH ?? "");
+  const objectName = String(row.OBJECT_NAME ?? "").trim();
+  if (
+    !Number.isInteger(noradId) ||
+    noradId <= 0 ||
+    !objectName ||
+    !Number.isFinite(new Date(`${epoch.replace(/Z$/, "")}Z`).getTime())
+  ) {
+    return null;
+  }
 
-let memoryCache: CacheEntry | null = null;
+  const omm: OmmElements = {
+    OBJECT_NAME: objectName,
+    OBJECT_ID: String(row.OBJECT_ID ?? ""),
+    EPOCH: epoch.replace(/Z$/, ""),
+    MEAN_MOTION: finite(row.MEAN_MOTION),
+    ECCENTRICITY: finite(row.ECCENTRICITY),
+    INCLINATION: finite(row.INCLINATION),
+    RA_OF_ASC_NODE: finite(row.RA_OF_ASC_NODE),
+    ARG_OF_PERICENTER: finite(row.ARG_OF_PERICENTER),
+    MEAN_ANOMALY: finite(row.MEAN_ANOMALY),
+    EPHEMERIS_TYPE: 0,
+    CLASSIFICATION_TYPE: row.CLASSIFICATION_TYPE === "C" ? "C" : "U",
+    NORAD_CAT_ID: noradId,
+    ELEMENT_SET_NO: finite(row.ELEMENT_SET_NO),
+    REV_AT_EPOCH: finite(row.REV_AT_EPOCH),
+    BSTAR: finite(row.BSTAR),
+    MEAN_MOTION_DOT: finite(row.MEAN_MOTION_DOT),
+    MEAN_MOTION_DDOT: finite(row.MEAN_MOTION_DDOT),
+  };
 
-let fullMemoryCache: FullCatalogCacheEntry | null = null;
+  const required = [
+    omm.MEAN_MOTION,
+    omm.ECCENTRICITY,
+    omm.INCLINATION,
+    omm.RA_OF_ASC_NODE,
+    omm.ARG_OF_PERICENTER,
+    omm.MEAN_ANOMALY,
+    omm.BSTAR,
+    omm.MEAN_MOTION_DOT,
+    omm.MEAN_MOTION_DDOT,
+  ];
+  return required.every(Number.isFinite) && omm.MEAN_MOTION > 0 ? omm : null;
+}
 
-async function readCacheFile(): Promise<CacheEntry | null> {
+function ommToCatalogRecord(omm: OmmElements): CatalogRecord {
+  return {
+    id: `cat-${omm.NORAD_CAT_ID}`,
+    name: omm.OBJECT_NAME,
+    noradId: omm.NORAD_CAT_ID,
+    objectType: "active",
+    omm,
+  };
+}
+
+function isUsableRecord(value: unknown): value is CatalogRecord {
+  if (!value || typeof value !== "object") return false;
+  const row = value as Partial<CatalogRecord>;
+  return (
+    typeof row.name === "string" &&
+    Number.isInteger(row.noradId) &&
+    ((row.omm != null && normalizeOmm(row.omm) != null) ||
+      (typeof row.line1 === "string" && typeof row.line2 === "string"))
+  );
+}
+
+async function readActiveCache(): Promise<ActiveCacheEntry | null> {
   try {
-    const raw = await fs.readFile(CACHE_FILE, "utf8");
-    const parsed = JSON.parse(raw) as CacheEntry;
+    const raw = await fs.readFile(ACTIVE_CACHE_FILE, "utf8");
+    const parsed = JSON.parse(raw) as Partial<ActiveCacheEntry>;
     if (
+      parsed.version !== CACHE_VERSION ||
       typeof parsed.fetchedAt !== "number" ||
       !Array.isArray(parsed.satellites)
     ) {
       return null;
     }
-    return parsed;
+    const satellites = parsed.satellites.filter(isUsableRecord);
+    return satellites.length > 0
+      ? { version: CACHE_VERSION, fetchedAt: parsed.fetchedAt, satellites }
+      : null;
   } catch {
     return null;
   }
 }
 
-async function readCache(): Promise<CacheEntry | null> {
-  if (memoryCache) return memoryCache;
-  const entry = await readCacheFile();
-  if (entry) memoryCache = entry;
-  return entry;
-}
-
-async function writeCache(entry: CacheEntry): Promise<void> {
-  memoryCache = entry;
+async function writeActiveCache(entry: ActiveCacheEntry): Promise<void> {
   try {
     await fs.mkdir(CACHE_DIR, { recursive: true });
-    await fs.writeFile(CACHE_FILE, JSON.stringify(entry), "utf8");
+    await fs.writeFile(ACTIVE_CACHE_FILE, JSON.stringify(entry), "utf8");
   } catch {
-    // Cache persistence is best-effort; the in-memory entry still applies.
+    // Persistence is best-effort. The in-memory copy remains authoritative.
   }
 }
 
-const FULL_CACHE_FILE = path.join(CACHE_DIR, "full-catalog.json");
-
-async function readFullCacheFile(): Promise<FullCatalogCacheEntry | null> {
-  try {
-    const raw = await fs.readFile(FULL_CACHE_FILE, "utf8");
-    const parsed = JSON.parse(raw) as FullCatalogCacheEntry;
-    if (
-      typeof parsed.fetchedAt !== "number" ||
-      !Array.isArray(parsed.satellites)
-    ) {
-      return null;
-    }
-    return parsed;
-  } catch {
-    return null;
-  }
-}
-
-async function readFullCache(): Promise<FullCatalogCacheEntry | null> {
-  if (fullMemoryCache) return fullMemoryCache;
-  const entry = await readFullCacheFile();
-  if (entry) fullMemoryCache = entry;
-  return entry;
-}
-
-async function writeFullCache(entry: FullCatalogCacheEntry): Promise<void> {
-  fullMemoryCache = entry;
-  try {
-    await fs.mkdir(CACHE_DIR, { recursive: true });
-    await fs.writeFile(FULL_CACHE_FILE, JSON.stringify(entry), "utf8");
-  } catch {
-    // Cache persistence is best-effort; the in-memory entry still applies.
-  }
-}
-
-const RAW_CACHE_FILE = path.join(CACHE_DIR, "celestrak-raw.txt");
-const RAW_META_FILE = path.join(CACHE_DIR, "celestrak-meta.json");
-
-async function readRawCache(): Promise<Map<number, string[]> | null> {
-  try {
-    const metaRaw = await fs.readFile(RAW_META_FILE, "utf8");
-    const meta = JSON.parse(metaRaw);
-    if (Date.now() - meta.fetchedAt >= CACHE_TTL_MS) return null;
-    const text = await fs.readFile(RAW_CACHE_FILE, "utf8");
-    return parseTleText(text);
-  } catch {
-    return null;
-  }
-}
-
-async function writeRawCache(text: string): Promise<void> {
-  try {
-    await fs.mkdir(CACHE_DIR, { recursive: true });
-    await fs.writeFile(RAW_CACHE_FILE, text, "utf8");
-    await fs.writeFile(RAW_META_FILE, JSON.stringify({ fetchedAt: Date.now() }), "utf8");
-  } catch {}
-}
-
-async function fetchCelestrak(): Promise<Map<number, string[]>> {
-  const url = `${CELESTRAK_URL}?GROUP=active&FORMAT=tle`;
+async function fetchActiveOmm(): Promise<CatalogRecord[]> {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
   try {
-    const res = await fetch(url, {
+    const response = await fetch(`${CELESTRAK_URL}?GROUP=active&FORMAT=csv`, {
       headers: {
-        "User-Agent": "above-earth/0.1 (interactive satellite globe)",
-        Accept: "text/plain,*/*",
+        "User-Agent": "above-earth/0.2 (interactive satellite globe)",
+        Accept: "text/csv",
       },
       signal: controller.signal,
       cache: "no-store",
     });
-    if (!res.ok) throw new Error(`CelesTrak responded ${res.status}`);
-    const text = await res.text();
-    await writeRawCache(text);
-    return parseTleText(text);
+    if (!response.ok) throw new Error(`CelesTrak responded ${response.status}`);
+    const payload = parseCsv(await response.text());
+    if (payload.length === 0) throw new Error("CelesTrak returned invalid CSV");
+    const byId = new Map<number, CatalogRecord>();
+    for (const value of payload) {
+      const omm = normalizeOmm(value);
+      if (omm) byId.set(omm.NORAD_CAT_ID, ommToCatalogRecord(omm));
+    }
+    const satellites = [...byId.values()].sort((a, b) => a.noradId - b.noradId);
+    if (satellites.length === 0) throw new Error("CelesTrak returned no records");
+    return satellites;
   } finally {
     clearTimeout(timer);
   }
 }
 
-
-/** CelesTrak GP TLE text is a sequence of 3-line records: name, line1, line2. */
-function parseTleText(text: string): Map<number, string[]> {
-  const lines = text.replace(/\r/g, "").split("\n").map((line) => line.trimEnd());
-  const result = new Map<number, string[]>();
-  for (let i = 0; i < lines.length; i += 3) {
-    const name = lines[i]?.trim() ?? "";
-    const line1 = lines[i + 1] ?? "";
-    const line2 = lines[i + 2] ?? "";
-    if (!/^1 /.test(line1) || !/^2 /.test(line2)) continue;
-    const noradId = Number(line2.slice(2, 7));
-    if (!Number.isInteger(noradId) || noradId <= 0) continue;
-    result.set(noradId, [name, line1, line2]);
-  }
-  return result;
+function bundledFallback(): ActiveDataset {
+  const raw = (activeCatalogData.satellites as unknown[]) ?? [];
+  const satellites = raw
+    .filter(isUsableRecord)
+    .filter((record) => record.objectType === "active")
+    .map((record) => ({ ...record, objectType: "active" as const }));
+  const fetchedAt = new Date(activeCatalogData.lastUpdated).getTime();
+  return {
+    version: CACHE_VERSION,
+    fetchedAt: Number.isFinite(fetchedAt) ? fetchedAt : 0,
+    satellites,
+    source: "catalog",
+    sourceStale: true,
+  };
 }
 
-type ActiveTleEntry = {
-  fetchedAt: number;
-  tles: Map<number, string[]>;
-};
-
-let activeMemory: ActiveTleEntry | null = null;
-let activeInflight: Promise<Map<number, string[]>> | null = null;
-
-/**
- * Return the raw CelesTrak `GROUP=active` TLE map, shared by the Explore
- * pipeline and the Full Catalog. CelesTrak enforces one download per update
- * window for this group, so a single in-flight fetch serves every caller.
- */
-async function getActiveTles(): Promise<Map<number, string[]>> {
+async function loadActiveDataset(): Promise<ActiveDataset> {
   const now = Date.now();
-  if (activeMemory && now - activeMemory.fetchedAt < CACHE_TTL_MS) {
-    return activeMemory.tles;
-  }
-  
-  const rawCache = await readRawCache();
-  if (rawCache) {
-    activeMemory = { fetchedAt: now, tles: rawCache };
-    return rawCache;
+  if (activeMemory && activeMemory.expiresAt > now) return activeMemory.dataset;
+  const cached = await readActiveCache();
+  if (cached && now - cached.fetchedAt < CACHE_TTL_MS) {
+    const dataset: ActiveDataset = {
+      ...cached,
+      source: "cache",
+      sourceStale: false,
+    };
+    activeMemory = { expiresAt: cached.fetchedAt + CACHE_TTL_MS, dataset };
+    return dataset;
   }
 
+  try {
+    const satellites = await fetchActiveOmm();
+    const entry: ActiveCacheEntry = {
+      version: CACHE_VERSION,
+      fetchedAt: now,
+      satellites,
+    };
+    await writeActiveCache(entry);
+    const dataset: ActiveDataset = {
+      ...entry,
+      source: "celestrak",
+      sourceStale: false,
+    };
+    activeMemory = { expiresAt: now + CACHE_TTL_MS, dataset };
+    return dataset;
+  } catch (error) {
+    const dataset: ActiveDataset = cached
+      ? { ...cached, source: "cache", sourceStale: true }
+      : bundledFallback();
+    if (dataset.satellites.length === 0) {
+      throw new FullCatalogError(
+        "FULL_CATALOG_UNREACHABLE",
+        "The satellite catalog could not be reached. Try again in a few minutes.",
+        { cause: error }
+      );
+    }
+    activeMemory = { expiresAt: now + FAILURE_RETRY_MS, dataset };
+    return dataset;
+  }
+}
+
+async function getActiveDataset(): Promise<ActiveDataset> {
   if (activeInflight) return activeInflight;
-  activeInflight = (async () => {
-    const tles = await fetchCelestrak();
-    activeMemory = { fetchedAt: Date.now(), tles };
-    return tles;
-  })().finally(() => {
+  activeInflight = loadActiveDataset().finally(() => {
     activeInflight = null;
   });
   return activeInflight;
 }
 
-let inflight: Promise<OrbitalDataResponse> | null = null;
+function recordEpochMs(record: CatalogRecord | SatelliteRecord): number {
+  if (record.omm) {
+    return new Date(`${record.omm.EPOCH.replace(/Z$/, "")}Z`).getTime();
+  }
+  if (!record.line1) return Number.NaN;
+  const shortYear = Number(record.line1.slice(18, 20));
+  const year = shortYear < 57 ? shortYear + 2000 : shortYear + 1900;
+  const day = Number(record.line1.slice(20, 32));
+  return Date.UTC(year, 0, 1) + (day - 1) * 86_400_000;
+}
 
-/** Return current orbital elements, preferring fresh CelesTrak data. */
+function summarizeQuality(
+  records: readonly (CatalogRecord | SatelliteRecord)[],
+  now = Date.now()
+): DataQuality {
+  const epochs = records.map(recordEpochMs).filter(Number.isFinite);
+  const freshCount = epochs.filter((epoch) => now - epoch <= FRESH_ELEMENT_MS).length;
+  return {
+    freshCount,
+    staleCount: records.length - freshCount,
+    oldestEpoch: epochs.length ? new Date(Math.min(...epochs)).toISOString() : null,
+    newestEpoch: epochs.length ? new Date(Math.max(...epochs)).toISOString() : null,
+  };
+}
+
+const CATEGORY_PATTERNS: Array<[SatelliteCategory, RegExp]> = [
+  [
+    "ISS/Crewed",
+    /\b(ISS|CSS|TIANHE|WENTIAN|MENGTIAN|SHENZHOU|TIANZHOU|CREW DRAGON|SOYUZ-MS|PROGRESS-MS|CYGNUS)\b/i,
+  ],
+  [
+    "GPS/Navigation",
+    /\b(GPS|NAVSTAR|GLONASS|GALILEO|BEIDOU|QZS|QZSS|IRNSS|NAVIC|WAAS|EGNOS)\b/i,
+  ],
+  [
+    "Weather",
+    /\b(NOAA|GOES|METOP|HIMAWARI|METEOR-M|FENGYUN|ELEKTRO|INSAT|JPSS|SUOMI|METEOSAT|GEO-KOMPSAT)\b/i,
+  ],
+  [
+    "Science",
+    /\b(HST|HUBBLE|JWST|CHANDRA|CXO|XMM|TERRA|AQUA|LANDSAT|SENTINEL|ICESAT|SWIFT|FERMI|FGRST|SDO|OCO|SMAP|GPM|GRACE|SWOT|TESS|CHEOPS|GAIA|EUCLID|EARTHCARE|BIOMASS)\b/i,
+  ],
+  [
+    "Communications",
+    /\b(STARLINK|ONEWEB|IRIDIUM|O3B|INTELSAT|EUTELSAT|SES|TELSTAR|INMARSAT|VIASAT|ORBCOMM|GLOBALSTAR|ASTRA|TDRS)\b/i,
+  ],
+];
+
+const EXPLORE_QUOTAS: Record<SatelliteCategory, number> = {
+  "ISS/Crewed": 12,
+  Communications: 40,
+  "GPS/Navigation": 28,
+  Weather: 23,
+  Science: 20,
+};
+
+function categoryForName(name: string): SatelliteCategory | null {
+  return CATEGORY_PATTERNS.find(([, pattern]) => pattern.test(name))?.[0] ?? null;
+}
+
+function selectExplore(records: readonly CatalogRecord[]): SatelliteRecord[] {
+  const selected: SatelliteRecord[] = [];
+  const seen = new Set<number>();
+  for (const [category] of CATEGORY_PATTERNS) {
+    const candidates = records.filter(
+      (record) => categoryForName(record.name) === category
+    );
+    if (category === "ISS/Crewed") {
+      candidates.sort((a, b) => {
+        if (a.noradId === 25544) return -1;
+        if (b.noradId === 25544) return 1;
+        return a.noradId - b.noradId;
+      });
+    }
+    for (const record of candidates.slice(0, EXPLORE_QUOTAS[category])) {
+      if (seen.has(record.noradId)) continue;
+      seen.add(record.noradId);
+      selected.push({
+        id: `sat-${record.noradId}`,
+        name: record.name,
+        noradId: record.noradId,
+        category,
+        ...(record.omm
+          ? { omm: record.omm }
+          : { line1: record.line1, line2: record.line2 }),
+      });
+    }
+  }
+  return selected.slice(0, EXPLORE_SIZE);
+}
+
+function isQualityStale(quality: DataQuality, count: number): boolean {
+  return count === 0 || quality.freshCount / count < 0.9;
+}
+
 export async function getSatellites(): Promise<OrbitalDataResponse> {
-  if (inflight) return inflight;
-  inflight = loadSatellites().finally(() => {
-    inflight = null;
-  });
-  return inflight;
-}
-
-async function loadSatellites(): Promise<OrbitalDataResponse> {
-  const cached = await readCache();
-  const now = Date.now();
-
-  if (cached && now - cached.fetchedAt < CACHE_TTL_MS) {
-    return {
-      source: "cache",
-      lastUpdated: new Date(cached.fetchedAt).toISOString(),
-      isStale: false,
-      satelliteCount: cached.satellites.length,
-      updatedCount: countUpdated(cached.satellites),
-      satellites: cached.satellites,
-    };
-  }
-
-  try {
-    const fetched = await fetchFromCelestrak();
-    const entry: CacheEntry = { fetchedAt: now, satellites: fetched };
-    await writeCache(entry);
-    return {
-      source: "celestrak",
-      lastUpdated: new Date(now).toISOString(),
-      isStale: false,
-      satelliteCount: fetched.length,
-      updatedCount: countUpdated(fetched),
-      satellites: fetched,
-    };
-  } catch {
-    if (cached) {
-      return {
-        source: "cache",
-        lastUpdated: new Date(cached.fetchedAt).toISOString(),
-        isStale: true,
-        satelliteCount: cached.satellites.length,
-        updatedCount: countUpdated(cached.satellites),
-        satellites: cached.satellites,
-      };
-    }
-    return catalogResponse();
-  }
-}
-
-async function fetchFromCelestrak(): Promise<SatelliteRecord[]> {
-  const live = await getActiveTles();
-
-  const merged: SatelliteRecord[] = [];
-  for (const tle of TLES) {
-    const fresh = live.get(tle.noradId);
-    merged.push(
-      fresh
-        ? {
-            id: tle.id,
-            name: tle.name,
-            category: tle.category,
-            noradId: tle.noradId,
-            line1: fresh[1],
-            line2: fresh[2],
-          }
-        : {
-            id: tle.id,
-            name: tle.name,
-            category: tle.category,
-            noradId: tle.noradId,
-            line1: tle.line1,
-            line2: tle.line2,
-          }
-    );
-  }
-  return merged;
-}
-
-function catalogResponse(): OrbitalDataResponse {
-  const satellites: SatelliteRecord[] = TLES.map((tle) => ({
-    id: tle.id,
-    name: tle.name,
-    category: tle.category,
-    noradId: tle.noradId,
-    line1: tle.line1,
-    line2: tle.line2,
-  }));
+  const dataset = await getActiveDataset();
+  const satellites = selectExplore(dataset.satellites);
+  const quality = summarizeQuality(satellites);
   return {
-    source: "catalog",
-    lastUpdated: CATALOG_EPOCH,
-    isStale: true,
+    source: dataset.source,
+    lastUpdated: new Date(dataset.fetchedAt).toISOString(),
+    isStale: dataset.sourceStale || isQualityStale(quality, satellites.length),
     satelliteCount: satellites.length,
-    updatedCount: 0,
+    updatedCount: quality.freshCount,
+    ...quality,
     satellites,
   };
 }
 
-/** Number of records whose elements came from a live fetch (differ from the catalog). */
-function countUpdated(satellites: SatelliteRecord[]): number {
-  const reference = new Map(TLES.map((tle) => [tle.noradId, tle.line1]));
-  return satellites.filter((s) => {
-    const refLine = reference.get(s.noradId);
-    return !!refLine && refLine !== s.line1;
-  }).length;
-}
-
-export function detectCatalogObjectType(name: string): CatalogObjectType {
-  const upper = name.toUpperCase();
-  if (
-    /\b(DEB|DEBRIS|FRAG|FRAGMENT|COOLANT|SHROUD|DISCARDED|COVER)\b/.test(upper) ||
-    upper.includes(" DEB") ||
-    upper.endsWith(" DEB") ||
-    upper.includes(" DEBRIS")
-  ) {
-    return "debris";
-  }
-  if (
-    /\b(R\/B|ROCKET BODY|STAGE|CENTAUR|BREEZE-M|FREGAT|TITAN 3C)\b/.test(upper) ||
-    upper.includes(" R/B") ||
-    upper.endsWith(" R/B") ||
-    upper.includes("ROCKET BODY")
-  ) {
-    return "rocketBody";
-  }
-  return "active";
-}
-
-function toCatalogRecords(tles: Map<number, string[]>): CatalogRecord[] {
-  const records: CatalogRecord[] = [];
-  for (const [noradId, [name, line1, line2]] of tles) {
-    records.push({
-      id: `cat-${noradId}`,
-      name,
-      noradId,
-      objectType: detectCatalogObjectType(name),
-      line1,
-      line2,
-    });
-  }
-  records.sort((a, b) => a.noradId - b.noradId);
-  return records;
-}
-
-function fullCatalogResponse(
-  entry: FullCatalogCacheEntry,
-  source: "celestrak" | "cache",
-  isStale: boolean
-): FullCatalogResponse {
-  return {
-    source,
-    lastUpdated: new Date(entry.fetchedAt).toISOString(),
-    isStale,
-    count: entry.satellites.length,
-    satellites: entry.satellites,
-  };
-}
-
-function fallbackFullCatalog(): FullCatalogResponse {
-  const satellites = (activeCatalogData.satellites as CatalogRecord[]) || [];
-  return {
-    source: "cache",
-    lastUpdated: activeCatalogData.lastUpdated || new Date().toISOString(),
-    isStale: true,
-    count: satellites.length,
-    satellites,
-  };
-}
-
-/**
- * Return the full active-satellite catalog. Prefers fresh CelesTrak data;
- * falls back to the on-disk cache or bundled active catalog when a fetch fails (e.g. rate limit).
- */
 export async function getFullCatalog(): Promise<FullCatalogResponse> {
-  const cached = await readFullCache();
-  const now = Date.now();
-
-  if (cached && now - cached.fetchedAt < CACHE_TTL_MS) {
-    return fullCatalogResponse(cached, "cache", false);
-  }
-
-  try {
-    const tles = await getActiveTles();
-    if (tles.size === 0) {
-      if (cached) return fullCatalogResponse(cached, "cache", true);
-      return fallbackFullCatalog();
-    }
-    const satellites = toCatalogRecords(tles);
-    if (satellites.length === 0) {
-      if (cached) return fullCatalogResponse(cached, "cache", true);
-      return fallbackFullCatalog();
-    }
-    const entry: FullCatalogCacheEntry = { fetchedAt: now, satellites };
-    await writeFullCache(entry);
-    return fullCatalogResponse(entry, "celestrak", false);
-  } catch (error) {
-    if (cached) {
-      return fullCatalogResponse(cached, "cache", true);
-    }
-    // Return bundled active catalog snapshot when live CelesTrak is rate-limited (HTTP 403) or offline
-    const fallback = fallbackFullCatalog();
-    if (fallback.satellites.length > 0) {
-      return fallback;
-    }
-    // Attach the underlying error as `cause` so the route can log it without
-    // leaking internals to the client.
-    if (error instanceof FullCatalogError) {
-      throw error;
-    }
+  const dataset = await getActiveDataset();
+  if (dataset.satellites.length === 0) {
     throw new FullCatalogError(
-      "FULL_CATALOG_UNREACHABLE",
-      "The satellite catalog could not be reached. Try again in a few minutes.",
-      { cause: error }
+      "FULL_CATALOG_EMPTY",
+      "The satellite catalog returned no active satellites."
     );
   }
+  const quality = summarizeQuality(dataset.satellites);
+  return {
+    source: dataset.source === "celestrak" ? "celestrak" : "cache",
+    lastUpdated: new Date(dataset.fetchedAt).toISOString(),
+    isStale:
+      dataset.sourceStale || isQualityStale(quality, dataset.satellites.length),
+    count: dataset.satellites.length,
+    ...quality,
+    satellites: dataset.satellites,
+  };
 }

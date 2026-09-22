@@ -2,10 +2,11 @@
 @import "cesium/Build/CesiumUnminified/Widgets/widgets.css";
 
 :root {
-  --background: #050505;
+  --background: #02050a;
   --foreground: #fafafa;
-  --panel: #09090b;
-  --panel-elevated: #111114;
+  --panel: #07101c;
+  --panel-elevated: #0b1726;
+  --accent: #7dd3fc;
   --line: rgba(255, 255, 255, 0.12);
   --line-strong: rgba(255, 255, 255, 0.28);
   --text-primary: #ffffff;
@@ -31,7 +32,7 @@ body {
 }
 
 body {
-  background: radial-gradient(120% 120% at 50% -10%, #0c0c0e 0%, #050505 60%, #000000 100%);
+  background: radial-gradient(120% 120% at 50% -10%, #0b1b2d 0%, #02050a 58%, #010205 100%);
   color: var(--foreground);
   overflow: hidden;
   font-family: var(--font-sans);
@@ -58,6 +59,25 @@ body {
   opacity: 1;
 }
 
+button,
+[role="button"] {
+  -webkit-tap-highlight-color: transparent;
+}
+
+button:focus-visible,
+input:focus-visible,
+[role="button"]:focus-visible {
+  outline: 2px solid rgb(125 211 252 / 0.9);
+  outline-offset: 2px;
+}
+
+.glass-panel {
+  border: 1px solid rgb(148 163 184 / 0.18);
+  background: linear-gradient(145deg, rgb(8 18 31 / 0.92), rgb(3 9 17 / 0.84));
+  box-shadow: 0 24px 80px rgb(0 0 0 / 0.5), inset 0 1px 0 rgb(255 255 255 / 0.05);
+  backdrop-filter: blur(22px) saturate(125%);
+}
+
 .nice-scroll {
   scrollbar-width: thin;
   scrollbar-color: rgb(255 255 255 / 0.16) transparent;
@@ -79,4 +99,15 @@ body {
 
 .nice-scroll::-webkit-scrollbar-thumb:hover {
   background: rgb(255 255 255 / 0.3);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
 }
