@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import dynamic from "next/dynamic";
 import { Loader2, Satellite } from "lucide-react";
 import { useSatelliteStore } from "@/store/satellites";
@@ -42,16 +42,25 @@ type OrbitalDataPayload = {
 };
 
 export default function Scene() {
+  const [catalogLoadState, setCatalogLoadState] = useState<
+    "loading" | "ready" | "error"
+  >("loading");
   const ready = useSatelliteStore((state) => state.ready);
   const validCount = useSatelliteStore((state) => state.validCount);
   const selectedId = useSatelliteStore((state) => state.selectedId);
   const catalogMode = useSatelliteStore((state) => state.catalogMode);
   const cameraMode = useSatelliteStore((state) => state.cameraMode);
-  const showEmpty = catalogMode === "explore" && ready && validCount === 0;
+  const showEmpty =
+    catalogMode === "explore" &&
+    catalogLoadState === "error" &&
+    ready &&
+    validCount === 0;
 
   useEffect(() => {
     let cancelled = false;
-    fetch("/api/satellites", { cache: "no-store" })
+    let retryTimer = 0;
+
+    const loadCatalog = (attempt: number) => fetch("/api/satellites")
       .then((response) => {
         if (!response.ok) throw new Error(`Satellite feed failed (${response.status})`);
         return response.json();
@@ -74,6 +83,7 @@ export default function Scene() {
             oldestEpoch: data.oldestEpoch ?? null,
             newestEpoch: data.newestEpoch ?? null,
           });
+          setCatalogLoadState("ready");
 
           // Check URL query parameters for deep linked satellite (?norad=25544 or ?id=iss)
           if (typeof window !== "undefined") {
@@ -91,13 +101,26 @@ export default function Scene() {
               }
             }
           }
+        } else {
+          throw new Error("Satellite feed returned no usable records");
         }
       })
       .catch(() => {
-        // Keep the checked-in catalog; the data-status badge explains why.
+        if (cancelled) return;
+        if (attempt < 2) {
+          retryTimer = window.setTimeout(
+            () => void loadCatalog(attempt + 1),
+            700 * (attempt + 1)
+          );
+          return;
+        }
+        setCatalogLoadState("error");
       });
+
+    void loadCatalog(0);
     return () => {
       cancelled = true;
+      window.clearTimeout(retryTimer);
     };
   }, []);
 

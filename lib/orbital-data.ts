@@ -425,6 +425,25 @@ export async function getSatellites(): Promise<OrbitalDataResponse> {
   };
 }
 
+/**
+ * Immediate, network-free Explore payload for cold serverless starts.
+ * The records come from the checked-in CelesTrak snapshot, not synthetic data.
+ */
+export function getBundledSatellites(): OrbitalDataResponse {
+  const dataset = bundledFallback();
+  const satellites = selectExplore(dataset.satellites);
+  const quality = summarizeQuality(satellites);
+  return {
+    source: "catalog",
+    lastUpdated: new Date(dataset.fetchedAt).toISOString(),
+    isStale: true,
+    satelliteCount: satellites.length,
+    updatedCount: quality.freshCount,
+    ...quality,
+    satellites,
+  };
+}
+
 export async function getFullCatalog(): Promise<FullCatalogResponse> {
   const dataset = await getActiveDataset();
   if (dataset.satellites.length === 0) {
