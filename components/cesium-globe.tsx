@@ -111,9 +111,9 @@ function detectPerformanceProfile(): PerformanceProfile {
   if (constrainedViewport || cores <= 4 || memory <= 4) {
     return {
       targetFps: 30,
-      resolutionScale: 0.9,
-      minimumResolutionScale: 0.7,
-      maximumScreenSpaceError: 3,
+      resolutionScale: 1.25,
+      minimumResolutionScale: 0.95,
+      maximumScreenSpaceError: 2,
       fullSliceFrames: 28,
       fullPositionInterval: 2,
     };
@@ -122,9 +122,9 @@ function detectPerformanceProfile(): PerformanceProfile {
   if (cores <= 8 || memory <= 8) {
     return {
       targetFps: 45,
-      resolutionScale: 1,
-      minimumResolutionScale: 0.75,
-      maximumScreenSpaceError: 2,
+      resolutionScale: 1.4,
+      minimumResolutionScale: 1.05,
+      maximumScreenSpaceError: 1.6,
       fullSliceFrames: 18,
       fullPositionInterval: 1,
     };
@@ -132,9 +132,9 @@ function detectPerformanceProfile(): PerformanceProfile {
 
   return {
     targetFps: 60,
-    resolutionScale: 1.15,
-    minimumResolutionScale: 0.85,
-    maximumScreenSpaceError: 1.5,
+    resolutionScale: 1.6,
+    minimumResolutionScale: 1.15,
+    maximumScreenSpaceError: 1.35,
     fullSliceFrames: 12,
     fullPositionInterval: 1,
   };
@@ -372,8 +372,16 @@ export default function CesiumGlobe() {
       let perfElapsedMs = 0;
       let perfFrames = 0;
       let stableWindows = 0;
+      let slowWindows = 0;
+      const perfWarmupUntil = performance.now() + 12_000;
       removePostRender = scene.postRender.addEventListener(() => {
         const now = performance.now();
+        if (now < perfWarmupUntil) {
+          perfLastMs = now;
+          perfElapsedMs = 0;
+          perfFrames = 0;
+          return;
+        }
         if (perfLastMs === 0 || now - perfLastMs > 500) {
           perfLastMs = now;
           perfElapsedMs = 0;
@@ -390,17 +398,22 @@ export default function CesiumGlobe() {
           measuredFps < performanceProfile.targetFps * 0.72 &&
           adaptiveScale > performanceProfile.minimumResolutionScale
         ) {
-          adaptiveScale = Math.max(
-            performanceProfile.minimumResolutionScale,
-            adaptiveScale - 0.1
-          );
-          cesiumViewer.resolutionScale = adaptiveScale;
+          slowWindows += 1;
+          if (slowWindows >= 2) {
+            adaptiveScale = Math.max(
+              performanceProfile.minimumResolutionScale,
+              adaptiveScale - 0.1
+            );
+            cesiumViewer.resolutionScale = adaptiveScale;
+            slowWindows = 0;
+          }
           stableWindows = 0;
         } else if (
           measuredFps > performanceProfile.targetFps * 0.94 &&
           adaptiveScale < performanceProfile.resolutionScale
         ) {
           stableWindows += 1;
+          slowWindows = 0;
           if (stableWindows >= 3) {
             adaptiveScale = Math.min(
               performanceProfile.resolutionScale,
@@ -411,6 +424,7 @@ export default function CesiumGlobe() {
           }
         } else {
           stableWindows = 0;
+          slowWindows = 0;
         }
         perfElapsedMs = 0;
         perfFrames = 0;
